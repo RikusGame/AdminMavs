@@ -1,0 +1,373 @@
+import { useState, useEffect } from "react";
+import { Search, Edit, Trash2, UserCircle, FileText } from "lucide-react"; 
+import { db } from "../config/firebase";
+import { collection, onSnapshot, query, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { ConductorDocumentosModal } from "../modal/ConductorDocumentosModal";
+import EditConductorModal from "../modal/EditConductorModal";
+import DeleteAlert from "../components/DeleteAlert";
+
+
+export function Conductores({ onSelectConductor }) {
+  const [conductores, setConductores] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("todos");
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedConductor, setSelectedConductor] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [conductorToEdit, setConductorToEdit] = useState(null);
+  const [conductorToDelete, setConductorToDelete] = useState(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    const taxistasCollectionRef = collection(db, "taxistas");
+
+    const q = query(taxistasCollectionRef);
+
+    const unsubscribe = onSnapshot(
+      q,
+      (snapshot) => {
+        const taxistasData = snapshot.docs
+          .map((doc) => {
+            const data = doc.data();
+
+            const perfil = data.perfilTaxista || {};
+            const documentos = data.documentosVehiculo || {}; 
+
+            return {
+              id: doc.id,
+              nombre: perfil.nombre || "N/A",
+              email: perfil.correo || "N/A",
+              telefono: perfil.telefono || "N/A",
+              fotoPerfilUrl: perfil.FotoPerfil || perfil.fotoPerfil || "",
+              documentos: documentos,
+              habilitado: data.habilitado || false,
+            };
+          })
+          // Filtrar solo conductores con nombre y correo completados
+          .filter(conductor => {
+            const tieneNombre = conductor.nombre && conductor.nombre !== "N/A" && conductor.nombre.trim() !== "";
+            const tieneCorreo = conductor.email && conductor.email !== "N/A" && conductor.email !== "Correo No Disponible" && conductor.email.trim() !== "";
+            return tieneNombre && tieneCorreo;
+          });
+
+        setConductores(taxistasData);
+        setLoading(false);
+      },
+      (error) => {
+        console.error("Error al obtener los datos de taxistas:", error);
+        setLoading(false);
+      }
+    );
+    return () => unsubscribe();
+  }, []);
+
+  const openDocumentsModal = (conductor) => {
+    const conductorCompleto = {
+      id: conductor.id,
+      perfilTaxista: {
+        nombre: conductor.nombre,
+        correo: conductor.email,
+        telefono: conductor.telefono
+      },
+      documentosVehiculo: conductor.documentos
+    };
+    setSelectedConductor(conductorCompleto);
+    setIsModalOpen(true);
+  };
+
+  const closeDocumentsModal = () => {
+    setIsModalOpen(false);
+    setSelectedConductor(null);
+  };
+
+  const openEditModal = (conductor) => {
+    setConductorToEdit(conductor);
+    setIsEditModalOpen(true);
+  };
+
+  const closeEditModal = () => {
+    setIsEditModalOpen(false);
+    setConductorToEdit(null);
+  };
+
+  const openDeleteModal = (conductor) => {
+    setConductorToDelete(conductor);
+    setIsDeleteModalOpen(true);
+  };
+
+  const closeDeleteModal = () => {
+    setIsDeleteModalOpen(false);
+    setConductorToDelete(null);
+  };
+
+  const handleDeleteConductor = async () => {
+    if (!conductorToDelete) return;
+    
+    setIsDeleting(true);
+    try {
+      const conductorRef = doc(db, "taxistas", conductorToDelete.id);
+      await deleteDoc(conductorRef);
+      closeDeleteModal();
+    } catch (error) {
+      console.error("Error al eliminar conductor:", error);
+      alert("Error al eliminar el conductor");
+    }
+    setIsDeleting(false);
+  };
+
+  const handleSaveEdit = () => {
+    // La actualización se maneja en el modal
+    closeEditModal();
+  };
+
+  const toggleHabilitado = async (conductorId, currentState) => {
+    try {
+      const conductorRef = doc(db, "taxistas", conductorId);
+      await updateDoc(conductorRef, {
+        habilitado: !currentState
+      });
+    } catch (error) {
+      console.error("Error al actualizar estado del conductor:", error);
+    }
+  };
+
+  const aprobarTodos = async () => {
+    try {
+      const updates = conductores.map(conductor => 
+        updateDoc(doc(db, "taxistas", conductor.id), { habilitado: true })
+      );
+      await Promise.all(updates);
+    } catch (error) {
+      console.error("Error al aprobar todos los conductores:", error);
+    }
+  };
+  
+  const filteredConductores = conductores.filter(
+    (conductor) => {
+      const matchesSearch = conductor.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           conductor.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           conductor.telefono.includes(searchTerm);
+      
+      const matchesStatus = statusFilter === "todos" ||
+                           (statusFilter === "aprobados" && conductor.habilitado) ||
+                           (statusFilter === "pendientes" && !conductor.habilitado);
+      
+      return matchesSearch && matchesStatus;
+    }
+  );
+
+  if (loading && conductores.length === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center p-6">
+        <img src="public/images/spinner.gif" alt="Cargando..." className="w-10" />
+        <a className="text-black-600">Cargando datos de conductores...</a>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6">
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h1>Conductores</h1>
+            <p className="text-sm text-gray-500">Gestión y administración de conductores</p>
+          </div>
+          <div className="text-sm text-gray-500">
+            Panel de Control {'>'} Conductores
+          </div>
+        </div>
+      </div>
+
+      {/* Stats Cards */}
+      <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="bg-white rounded-lg p-4 shadow-sm">
+          <div className="text-2xl mb-1">{conductores.length}</div>
+          <div className="text-sm text-gray-500">Total Conductores</div>
+        </div>
+        <div className="bg-white rounded-lg p-4 shadow-sm">
+          <div className="text-2xl text-green-600 mb-1">{conductores.filter(c => c.habilitado).length}</div>
+          <div className="text-sm text-gray-500">Aprobados</div>
+        </div>
+        <div className="bg-white rounded-lg p-4 shadow-sm">
+          <div className="text-2xl text-orange-600 mb-1">{conductores.filter(c => !c.habilitado).length}</div>
+          <div className="text-sm text-gray-500">Pendientes</div>
+        </div>
+        <div className="bg-white rounded-lg p-4 shadow-sm">
+          <div className="text-2xl text-blue-600 mb-1">{filteredConductores.length}</div>
+          <div className="text-sm text-gray-500">Filtrados</div>
+        </div>
+      </div>
+      <div className="bg-white rounded-lg p-4 shadow-sm mb-4">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setStatusFilter("todos")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                statusFilter === "todos"
+                  ? "bg-[#a8d96f] text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              Todos
+            </button>
+            <button
+              onClick={() => setStatusFilter("aprobados")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                statusFilter === "aprobados"
+                  ? "bg-green-600 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              Aprobados
+            </button>
+            <button
+              onClick={() => setStatusFilter("pendientes")}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                statusFilter === "pendientes"
+                  ? "bg-orange-600 text-white"
+                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              }`}
+            >
+              Pendientes
+            </button>
+            
+            <button
+              onClick={aprobarTodos}
+              className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
+            >
+              Aprobar Todos
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Buscar por nombre, correo o teléfono..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b">
+                <th className="text-left py-3 px-4">Nombre</th>
+                <th className="text-left py-3 px-4">Correo</th>
+                <th className="text-left py-3 px-4">Teléfono</th>
+                <th className="text-left py-3 px-4">Estado</th>
+                <th className="text-left py-3 px-4">Docs</th> 
+                <th className="text-left py-3 px-4">Acciones</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredConductores.map((conductor) => (
+                <tr key={conductor.id} className="border-b hover:bg-gray-50">
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-3 cursor-pointer hover:text-blue-600 transition" onClick={() => onSelectConductor(conductor.id)}>
+                      {conductor.fotoPerfilUrl ? (
+                        <img
+                          src={conductor.fotoPerfilUrl}
+                          alt={`Foto de ${conductor.nombre}`}
+                          className="w-10 h-10 rounded-full object-cover"
+                          onError={(e) => {
+                            const target = e.target;
+                            target.style.display = "none";
+                          }}
+                        />
+                      ) : (
+                        <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                          <UserCircle className="w-6 h-6 text-white" />
+                        </div>
+                      )}
+                      <span className="font-medium hover:underline">{conductor.nombre}</span>
+                    </div>
+                  </td>
+                  <td className="py-3 px-4 text-sm text-red-500">{conductor.email}</td>
+                  <td className="py-3 px-4 text-sm">{conductor.telefono}</td>
+                  
+                  <td className="py-3 px-4">
+                    <label className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={conductor.habilitado}
+                        onChange={() => toggleHabilitado(conductor.id, conductor.habilitado)}
+                        className="sr-only peer"
+                      />
+                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#a8d96f]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#a8d96f]"></div>
+                    </label>
+                  </td>
+                  
+                  <td className="py-3 px-4">
+                    <button
+                      onClick={() => openDocumentsModal(conductor)}
+                      className="text-gray-500 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition duration-150"
+                      title="Ver Documentos"
+                    >
+                      <FileText className="w-4 h-4" />
+                    </button>
+                  </td>
+
+                  <td className="py-3 px-4">
+                    <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => openEditModal(conductor)}
+                        className="text-green-500 hover:text-green-600 p-2 rounded-full hover:bg-green-50 transition duration-150"
+                        title="Editar Conductor"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </button>
+                      <button 
+                        onClick={() => openDeleteModal(conductor)}
+                        className="text-red-500 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition duration-150"
+                        title="Eliminar Conductor"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+      
+      {isModalOpen && selectedConductor && (
+        <ConductorDocumentosModal
+          conductor={selectedConductor}
+          onClose={closeDocumentsModal}
+        />
+      )}
+      
+      {isEditModalOpen && conductorToEdit && (
+        <EditConductorModal
+          isOpen={isEditModalOpen}
+          onClose={closeEditModal}
+          conductor={conductorToEdit}
+          onSave={handleSaveEdit}
+        />
+      )}
+      
+      {isDeleteModalOpen && conductorToDelete && (
+        <DeleteAlert
+          isOpen={isDeleteModalOpen}
+          onClose={closeDeleteModal}
+          onConfirm={handleDeleteConductor}
+          itemName={conductorToDelete.nombre}
+          itemType="el conductor"
+          isDeleting={isDeleting}
+        />
+      )}
+    </div>
+  );
+}

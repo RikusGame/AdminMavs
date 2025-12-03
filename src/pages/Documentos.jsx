@@ -1,0 +1,574 @@
+import React, { useState, useEffect } from 'react';
+import { db } from '../config/firebase';
+import { collection, query, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { FileText, CheckCircle, XCircle, Search, Eye, Loader2, Users, Truck } from 'lucide-react'; 
+
+
+
+// Solo documentos obligatorios en el mapa principal
+// fotoVehiculo2 es opcional y se mostrará si existe
+const DOCUMENT_MAP = {
+  fotoAntecedentesPenales: { name: 'Antecedentes Penales', category: 'General' },
+  fotoCarneIdentidadAnverso: { name: 'C.I. Anverso', category: 'Identificación' },
+  fotoCarneIdentidadReverso: { name: 'C.I. Reverso', category: 'Identificación' },
+  fotoConductor: { name: 'Foto del Conductor', category: 'Identificación' },
+  fotoLicenciaConducirAnverso: { name: 'Licencia Anverso', category: 'Licencia' },
+  fotoLicenciaConducirReverso: { name: 'Licencia Reverso', category: 'Licencia' },
+  fotoPermisoCirculacion: { name: 'Permiso de Circulación', category: 'Vehículo' },
+  fotoRevisionTecnica: { name: 'Revisión Técnica', category: 'Vehículo' },
+  fotoSoat: { name: 'SOAT', category: 'Vehículo' },
+  fotoVehiculo1: { name: 'Foto del Vehículo 1', category: 'Vehículo' },
+  fotoVehiculo2: { name: 'Foto del Vehículo 2', category: 'Vehículo', optional: true },
+};
+
+const CATEGORIES = [
+  'Todos',
+  'Identificación',
+  'Licencia',
+  'Vehículo',
+  'General',
+];
+
+
+const transformDriverData = (driver) => {
+  const documents = [];
+  const vehicleDocs = driver.documentosVehiculo || {};
+  const driverProfile = driver.perfilTaxista || {};
+
+
+  Object.entries(DOCUMENT_MAP).forEach(([key, info]) => {
+    const url = vehicleDocs[key];
+    // Capitalize first letter of the field name: fotoConductor -> FotoConductor
+    const capitalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
+    const verificationKey = `verificado${capitalizedKey}`;
+    const isVerified = vehicleDocs[verificationKey] === true;
+
+
+    if (url) {
+      documents.push({
+        id: key,
+        name: info.name,
+        url: url,
+        isVerified: isVerified,
+        category: info.category,
+      });
+    }
+  });
+
+  return {
+    ...driverProfile,
+    uid: driver.id,
+    documents: documents,
+    habilitado: vehicleDocs.habilitado || false,
+    vehiculo: {
+        marca: vehicleDocs.marca || 'N/A',
+        color: vehicleDocs.color || 'N/A',
+    }
+  };
+};
+
+
+const Documentos = () => {
+  const [drivers, setDrivers] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [filterCategory, setFilterCategory] = useState('Todos');
+  const [searchTerm, setSearchTerm] = useState('');
+  const [suggestions, setSuggestions] = useState([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [modalUrl, setModalUrl] = useState(null);
+  const [modalTitle, setModalTitle] = useState('');
+  const [updating, setUpdating] = useState(new Set());
+  const [pauseListener, setPauseListener] = useState(false);
+
+  const toggleDocumentVerification = async (driverId, docKey, currentState) => {
+    const updateKey = `${driverId}-${docKey}`;
+    if (updating.has(updateKey)) return;
+    
+    setUpdating(prev => new Set(prev).add(updateKey));
+    setPauseListener(true);
+    
+    const newDocState = !currentState;
+    
+    // Encontrar el conductor y actualizar
+    const currentDriver = drivers.find(d => d.uid === driverId);
+    if (!currentDriver) {
+      setUpdating(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(updateKey);
+        return newSet;
+      });
+      setPauseListener(false);
+      return;
+    }
+    
+    // Actualizar documentos
+    const updatedDocs = currentDriver.documents.map(doc => 
+      doc.id === docKey ? { ...doc, isVerified: newDocState } : doc
+    );
+    
+    // Verificar si TODOS los documentos OBLIGATORIOS están habilitados
+    // Excluir documentos opcionales (fotoVehiculo2, fotoVehiculo3, fotoVehiculo4)
+    const obligatoryDocs = updatedDocs.filter(doc => {
+      const docInfo = DOCUMENT_MAP[doc.id];
+      return !docInfo?.optional;
+    });
+    
+    const allDocsVerified = obligatoryDocs.length > 0 && obligatoryDocs.every(doc => doc.isVerified);
+    
+    // Si todos verificados → habilitado true
+    // Si alguno NO verificado → habilitado false
+    const newHabilitadoState = allDocsVerified;
+    
+    // Actualizar estado local
+    setDrivers(prev => prev.map(driver => 
+      driver.uid === driverId 
+        ? {
+            ...driver,
+            documents: updatedDocs,
+            habilitado: newHabilitadoState
+          }
+        : driver
+    ));
+    
+    try {
+      // Capitalize first letter: fotoConductor -> FotoConductor
+      const capitalizedKey = docKey.charAt(0).toUpperCase() + docKey.slice(1);
+      const verificadoKey = `verificado${capitalizedKey}`;
+      const updates = {
+        [`documentosVehiculo.${verificadoKey}`]: newDocState,
+        'documentosVehiculo.habilitado': newHabilitadoState
+      };
+      
+      await updateDoc(doc(db, 'taxistas', driverId), updates);
+    } catch (error) {
+      console.error('Error al actualizar verificación:', error);
+      // Revertir en caso de error
+      setDrivers(prev => prev.map(driver => 
+        driver.uid === driverId 
+          ? {
+              ...driver,
+              documents: driver.documents.map(doc => 
+                doc.id === docKey ? { ...doc, isVerified: currentState } : doc
+              )
+            }
+          : driver
+      ));
+    } finally {
+      setUpdating(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(updateKey);
+        return newSet;
+      });
+      setTimeout(() => setPauseListener(false), 500);
+    }
+  };
+
+  const toggleDriverEnabled = async (driverId, currentState) => {
+    const updateKey = `${driverId}-enabled`;
+    if (updating.has(updateKey)) return;
+    
+    setUpdating(prev => new Set(prev).add(updateKey));
+    setPauseListener(true);
+    
+    const newEnabledState = !currentState;
+    
+    // Actualizar estado local: cambiar habilitado Y todos los documentos
+    setDrivers(prev => prev.map(driver => 
+      driver.uid === driverId 
+        ? { 
+            ...driver, 
+            habilitado: newEnabledState,
+            documents: driver.documents.map(doc => ({ 
+              ...doc, 
+              isVerified: newEnabledState 
+            }))
+          } 
+        : driver
+    ));
+    
+    try {
+      // Preparar actualizaciones para Firebase
+      const updates = {
+        'documentosVehiculo.habilitado': newEnabledState
+      };
+      
+      // Actualizar todos los campos verificado* según el nuevo estado
+      Object.keys(DOCUMENT_MAP).forEach(key => {
+        // Capitalize first letter: fotoConductor -> FotoConductor
+        const capitalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
+        const verificadoKey = `verificado${capitalizedKey}`;
+        updates[`documentosVehiculo.${verificadoKey}`] = newEnabledState;
+      });
+      
+      await updateDoc(doc(db, 'taxistas', driverId), updates);
+    } catch (error) {
+      console.error('Error al actualizar habilitación:', error);
+      // Revertir en caso de error
+      setDrivers(prev => prev.map(driver => 
+        driver.uid === driverId 
+          ? { 
+              ...driver, 
+              habilitado: currentState,
+              documents: driver.documents.map(doc => ({ 
+                ...doc, 
+                isVerified: !newEnabledState 
+              }))
+            } 
+          : driver
+      ));
+    } finally {
+      setUpdating(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(updateKey);
+        return newSet;
+      });
+      setTimeout(() => setPauseListener(false), 500);
+    }
+  };
+
+  useEffect(() => {
+    const driversCollectionRef = collection(db, 'taxistas');
+    const q = query(driversCollectionRef);
+    
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      if (pauseListener) return;
+      
+      const driversList = [];
+      snapshot.forEach((doc) => {
+        const driverData = { id: doc.id, ...doc.data() };
+        driversList.push(transformDriverData(driverData));
+      });
+      setDrivers(driversList);
+      setLoading(false);
+    }, (error) => {
+        console.error("Error al cargar documentos:", error);
+        setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []); 
+
+
+  const openDocumentModal = (url, name) => {
+    setModalUrl(url);
+    setModalTitle(name);
+  };
+
+  // Función para calcular similitud entre strings
+  const calculateSimilarity = (str1, str2) => {
+    const s1 = str1.toLowerCase();
+    const s2 = str2.toLowerCase();
+    
+    // Coincidencia exacta al inicio
+    if (s2.startsWith(s1)) return 100;
+    
+    // Contiene la búsqueda
+    if (s2.includes(s1)) return 50 + (s1.length / s2.length) * 50;
+    
+    // Similitud por caracteres coincidentes
+    let matches = 0;
+    for (let char of s1) {
+      if (s2.includes(char)) matches++;
+    }
+    return (matches / s1.length) * 30;
+  };
+
+  // Actualizar sugerencias cuando cambia el término de búsqueda
+  const handleSearchChange = (value) => {
+    setSearchTerm(value);
+    
+    if (value.trim().length > 0) {
+      const searchResults = drivers
+        .filter(driver => driver.nombre && driver.nombre !== 'Nombre No Disponible')
+        .map(driver => ({
+          ...driver,
+          similarity: calculateSimilarity(value, driver.nombre || '')
+        }))
+        .filter(driver => driver.similarity > 0)
+        .sort((a, b) => b.similarity - a.similarity)
+        .slice(0, 3); // Solo los 3 mejores resultados
+      
+      setSuggestions(searchResults);
+      setShowSuggestions(searchResults.length > 0);
+    } else {
+      setSuggestions([]);
+      setShowSuggestions(false);
+    }
+  };
+
+  const selectSuggestion = (driverName) => {
+    setSearchTerm(driverName);
+    setShowSuggestions(false);
+  };
+
+
+  const filteredDrivers = drivers.map(driver => {
+
+    const filteredDocuments = driver.documents.filter(doc => {
+      const categoryMatch = filterCategory === 'Todos' || doc.category === filterCategory;
+      return categoryMatch;
+    });
+
+    return { ...driver, documents: filteredDocuments };
+  }).filter(driver => {
+
+    const normalizedSearch = searchTerm.toLowerCase();
+    const nameMatch = driver.nombre?.toLowerCase().includes(normalizedSearch);
+    const uidMatch = driver.uid?.toLowerCase().includes(normalizedSearch);
+    const emailMatch = driver.correo?.toLowerCase().includes(normalizedSearch);
+
+    return (nameMatch || uidMatch || emailMatch) && driver.documents.length > 0;
+  });
+
+  const DocumentCard = ({ doc, onOpen, driverId }) => {
+    const docInfo = DOCUMENT_MAP[doc.id];
+    const isOptional = docInfo?.optional || false;
+    
+    return (
+      <div className={`p-4 rounded-lg border transition-all
+        ${doc.isVerified ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}>
+        
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <FileText className="w-5 h-5 text-[#a8d96f]" />
+            <div>
+              <div className="flex items-center gap-2">
+                <h4 className="font-medium text-gray-800">{doc.name}</h4>
+                {isOptional && (
+                  <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                    Opcional
+                  </span>
+                )}
+              </div>
+              <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium mt-1 ${
+                doc.isVerified ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+              }`}>
+                {doc.isVerified ? 'Aprobado' : 'Pendiente'}
+              </span>
+            </div>
+          </div>
+        
+        <div className="flex items-center gap-3">
+          <button 
+            onClick={() => onOpen(doc.url, doc.name)} 
+            className="flex items-center gap-2 px-3 py-2 bg-[#a8d96f] text-white rounded-lg hover:bg-[#96c55f] transition duration-150 text-sm font-medium shadow-md"
+            title="Previsualizar Documento"
+          >
+            <Eye className="w-4 h-4" /> Ver
+          </button>
+          
+          <label className="relative inline-flex items-center cursor-pointer">
+            <input
+              type="checkbox"
+              checked={doc.isVerified}
+              onChange={() => toggleDocumentVerification(driverId, doc.id, doc.isVerified)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#a8d96f]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#a8d96f]"></div>
+          </label>
+        </div>
+      </div>
+    </div>
+    );
+  };
+
+  const DriverSection = ({ driver }) => (
+    <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100">
+      
+      <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center">
+        <div className="flex items-center gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800 flex items-center">
+              <Users className="w-5 h-5 mr-2 text-[#a8d96f]"/>
+              {driver.nombre || 'Nombre No Disponible'}
+            </h2>
+            <p className="text-sm text-gray-600">{driver.correo}</p>
+          </div>
+          
+          <div className="flex items-center gap-2">
+            <span className={`text-sm font-medium ${
+              driver.habilitado ? 'text-green-600' : 'text-red-600'
+            }`}>
+              {driver.habilitado ? 'Habilitado' : 'Deshabilitado'}
+            </span>
+            <label className="relative inline-flex items-center cursor-pointer">
+              <input
+                type="checkbox"
+                checked={driver.habilitado}
+                onChange={() => toggleDriverEnabled(driver.uid, driver.habilitado)}
+                className="sr-only peer"
+              />
+              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#a8d96f]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#a8d96f]"></div>
+            </label>
+          </div>
+        </div>
+        
+        <div className="text-right p-2 bg-white rounded-lg border">
+            <p className="text-sm font-semibold text-gray-700 flex items-center">
+                <Truck className="w-4 h-4 mr-1"/> {driver.vehiculo.marca}
+            </p>
+            <p className="text-xs text-gray-600">Color: {driver.vehiculo.color}</p>
+        </div>
+      </div>
+      
+      <div className="p-4 space-y-3">
+        {driver.documents.length > 0 ? (
+            driver.documents.map(doc => (
+                <DocumentCard key={doc.id} doc={doc} onOpen={openDocumentModal} driverId={driver.uid} />
+            ))
+        ) : (
+            <p className="text-center text-gray-500 italic p-4">
+                No hay documentos para mostrar.
+            </p>
+        )}
+      </div>
+    </div>
+  );
+  
+
+  const DocumentModal = ({ url, title, onClose }) => {
+    if (!url) return null;
+
+    return (
+      <div 
+        className="fixed inset-0 bg-transparent backdrop-blur-sm flex justify-center items-center z-50 p-4 transition-opacity duration-300 ease-out"
+        onClick={onClose}
+      >
+        <style jsx global>{`
+          @keyframes modal-pop-in {
+            0% { transform: scale(0.95); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+          }
+        `}</style>
+        
+        <div 
+          className="bg-white rounded-xl shadow-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-out scale-100"
+          onClick={(e) => e.stopPropagation()}
+          style={{ animation: 'modal-pop-in 0.3s ease-out forwards' }}
+        >
+          <div className="flex justify-between items-center p-5 border-b border-gray-100">
+            <h2 className="text-xl font-extrabold text-gray-800">{title}</h2>
+            <button 
+              onClick={onClose} 
+              className="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition duration-150"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+          <div className="p-6">
+            <img 
+              src={url} 
+              alt={`Documento: ${title}`} 
+              className="w-full h-auto object-contain rounded-lg"
+              onError={(e) => { 
+                e.target.onerror = null; 
+                e.target.src = "https://placehold.co/800x600/EF4444/FFFFFF?text=Error+al+cargar+documento"; 
+              }}
+            />
+            <p className="mt-4 text-center text-xs text-gray-500">
+              URL Fuente: <a href={url} target="_blank" rel="noopener noreferrer" className="text-indigo-500 hover:text-indigo-700 transition duration-150">{url}</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+        <Loader2 className="w-8 h-8 animate-spin text-[#a8d96f] mr-2" />
+        <span className="text-lg text-gray-600">Cargando documentos...</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      
+      <div className="flex justify-between items-center">
+        <h1 className="text-2xl font-bold text-gray-900">Documentos de Conductores</h1>
+      </div>
+      
+      <div className="bg-white rounded-lg p-6 shadow-sm">
+        <p className="text-gray-600 mb-6">
+            Revisión y verificación de documentos de conductores.
+        </p>
+
+        <div className="flex flex-col md:flex-row gap-4">
+          <div className="relative flex-1">
+            <input
+              type="text"
+              placeholder="Buscar por nombre o correo..."
+              value={searchTerm}
+              onChange={(e) => handleSearchChange(e.target.value)}
+              onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
+              onFocus={() => searchTerm && suggestions.length > 0 && setShowSuggestions(true)}
+              className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:border-[#a8d96f] focus:ring-[#a8d96f] transition"
+            />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+            
+            {/* Dropdown de sugerencias */}
+            {showSuggestions && suggestions.length > 0 && (
+              <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                {suggestions.map((driver, index) => (
+                  <div
+                    key={driver.uid}
+                    onClick={() => selectSuggestion(driver.nombre)}
+                    className="px-4 py-3 hover:bg-gray-50 cursor-pointer border-b last:border-b-0 transition"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-800">{driver.nombre}</p>
+                        <p className="text-sm text-gray-500">{driver.correo}</p>
+                      </div>
+                      <span className="text-xs px-2 py-1 bg-green-100 text-green-700 rounded-full">
+                        {index + 1}° opción
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <select
+            value={filterCategory}
+            onChange={(e) => setFilterCategory(e.target.value)}
+            className="md:w-56 bg-white border border-gray-300 rounded-lg py-2 px-4 text-gray-700 focus:border-[#a8d96f] transition"
+          >
+            {CATEGORIES.map(category => (
+              <option key={category} value={category}>{`Filtrar: ${category}`}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      {filteredDrivers.length > 0 ? (
+        <div className="space-y-6">
+          {filteredDrivers.map(driver => (
+            <DriverSection key={driver.uid} driver={driver} />
+          ))}
+        </div>
+      ) : (
+        <div className="bg-white rounded-lg p-8 shadow-sm text-center">
+          <FileText className="w-12 h-12 text-gray-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-gray-700">No hay documentos</h2>
+          <p className="text-gray-500">No se encontraron documentos que coincidan con los filtros.</p>
+        </div>
+      )}
+
+
+      <DocumentModal 
+        url={modalUrl} 
+        title={modalTitle} 
+        onClose={() => setModalUrl(null)} 
+      />
+
+    </div>
+  );
+};
+
+export default Documentos;
