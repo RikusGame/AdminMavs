@@ -14,9 +14,7 @@ export function Usuarios({ onSelectUsuario }) {
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [modoFilter, setModoFilter] = useState('todos');
   const [estadoFilter, setEstadoFilter] = useState('todos');
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
-  const [usuarioToEdit, setUsuarioToEdit] = useState(null);
   const [usuarioToDelete, setUsuarioToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [imageErrors, setImageErrors] = useState({});
@@ -104,16 +102,7 @@ export function Usuarios({ onSelectUsuario }) {
     );
   };
 
-  const openEditModal = (usuario) => {
-    setUsuarioToEdit(usuario);
-    setIsEditModalOpen(true);
-  };
-
-  const closeEditModal = () => {
-    setIsEditModalOpen(false);
-    setUsuarioToEdit(null);
-  };
-
+ 
   const openDeleteModal = (usuario) => {
     setUsuarioToDelete(usuario);
     setIsDeleteModalOpen(true);
@@ -139,9 +128,6 @@ export function Usuarios({ onSelectUsuario }) {
     setIsDeleting(false);
   };
 
-  const handleSaveEdit = () => {
-    closeEditModal();
-  };
 
   const handleImageError = (usuarioId) => {
     setImageErrors(prev => ({ ...prev, [usuarioId]: true }));
@@ -255,7 +241,6 @@ export function Usuarios({ onSelectUsuario }) {
                 <th className="text-left py-3 px-4">Correo Electrónico</th>
                 <th className="text-left py-3 px-4">Teléfono</th>
                 <th className="text-left py-3 px-4">Modo</th>
-                <th className="text-left py-3 px-4">Activo</th>
                 <th className="text-left py-3 px-4">Acciones</th>
               </tr>
             </thead>
@@ -265,7 +250,7 @@ export function Usuarios({ onSelectUsuario }) {
                   <td className="py-3 px-4">
                     <input
                       type="checkbox"
-                      checked={selectedUsers.includes(usuario.id)}
+                      checked={selectedUsers.includes(usuario.id)}  
                       onChange={() => handleSelectUser(usuario.id)}
                       className="rounded"
                     />
@@ -304,26 +289,11 @@ export function Usuarios({ onSelectUsuario }) {
                         {usuario.modo.charAt(0).toUpperCase() + usuario.modo.slice(1)}
                     </span>
                   </td>
-                  <td className="py-3 px-4">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={usuario.activo}
-                        onChange={() => toggleActivo(usuario.id, usuario.activo)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#a8d96f]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#a8d96f]"></div>
-                    </label>
-                  </td>
+                  
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
-                      <button 
-                        onClick={() => openEditModal(usuario)}
-                        className="text-green-500 hover:text-green-600 p-2 rounded-full hover:bg-green-50 transition duration-150"
-                        title="Editar Usuario"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>
+                      
+                      
                       <button 
                         onClick={() => openDeleteModal(usuario)}
                         className="text-red-500 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition duration-150"
@@ -339,16 +309,7 @@ export function Usuarios({ onSelectUsuario }) {
           </table>
         </div>
       </div>
-      
-      {isEditModalOpen && usuarioToEdit && (
-        <EditUsuarioModal
-          isOpen={isEditModalOpen}
-          onClose={closeEditModal}
-          usuario={usuarioToEdit}
-          onSave={handleSaveEdit}
-        />
-      )}
-      
+            
       {isDeleteModalOpen && usuarioToDelete && (
         <DeleteAlert
           isOpen={isDeleteModalOpen}

@@ -319,13 +319,13 @@ export function Conductores({ onSelectConductor }) {
 
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
-                      <button 
+                     {/*} <button 
                         onClick={() => openEditModal(conductor)}
                         className="text-green-500 hover:text-green-600 p-2 rounded-full hover:bg-green-50 transition duration-150"
                         title="Editar Conductor"
                       >
                         <Edit className="w-4 h-4" />
-                      </button>
+                      </button>*/}
                       <button 
                         onClick={() => openDeleteModal(conductor)}
                         className="text-red-500 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition duration-150"
