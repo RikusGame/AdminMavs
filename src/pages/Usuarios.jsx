@@ -33,12 +33,18 @@ export function Usuarios({ onSelectUsuario }) {
             const data = doc.data();
             const perfil = data.perfil || {};
 
+            let telefonoRaw = perfil.telefono || "N/A";
+            let telefono = telefonoRaw;
+            if (telefonoRaw !== "N/A" && telefonoRaw.startsWith(perfil.codigoPais)) {
+              telefono = perfil.codigoPais +" "+ telefonoRaw.slice(4);
+            }
+
             return {
               modo: data.modo || 'usuario', 
               id: doc.id,
               nombre: perfil.name || "Nombre No Disponible",
               email: perfil.email || "Correo No Disponible",
-              telefono: data.telefono || "N/A", 
+              telefono: telefono || "N/A", 
               fecha: perfil.ultimologin ? new Date(perfil.ultimologin).toLocaleString() : "N/A", 
               activo: data.activo === undefined ? true : data.activo,
               photoUrl: perfil.photoUrl || (perfil.name ? perfil.name.charAt(0).toUpperCase() : '👤'),

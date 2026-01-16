@@ -36,7 +36,7 @@ export function Conductores({ onSelectConductor }) {
 
             const perfil = data.perfilTaxista || {};
             const documentos = data.documentosVehiculo || {}; 
-
+            
             return {
               id: doc.id,
               nombre: perfil.nombre || "N/A",
@@ -264,7 +264,7 @@ export function Conductores({ onSelectConductor }) {
                 <th className="text-left py-3 px-4">Nombre</th>
                 <th className="text-left py-3 px-4">Correo</th>
                 <th className="text-left py-3 px-4">Teléfono</th>
-                <th className="text-left py-3 px-4">Estado</th>
+                {/*<th className="text-left py-3 px-4">Estado</th>*/}
                 <th className="text-left py-3 px-4">Docs</th> 
                 <th className="text-left py-3 px-4">Acciones</th>
               </tr>
@@ -296,18 +296,6 @@ export function Conductores({ onSelectConductor }) {
                   <td className="py-3 px-4 text-sm">{conductor.telefono}</td>
                   
                   <td className="py-3 px-4">
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={conductor.habilitado}
-                        onChange={() => toggleHabilitado(conductor.id, conductor.habilitado)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#a8d96f]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#a8d96f]"></div>
-                    </label>
-                  </td>
-                  
-                  <td className="py-3 px-4">
                     <button
                       onClick={() => openDocumentsModal(conductor)}
                       className="text-gray-500 hover:text-indigo-600 p-2 rounded-full hover:bg-indigo-50 transition duration-150"
@@ -319,13 +307,7 @@ export function Conductores({ onSelectConductor }) {
 
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
-                     {/*} <button 
-                        onClick={() => openEditModal(conductor)}
-                        className="text-green-500 hover:text-green-600 p-2 rounded-full hover:bg-green-50 transition duration-150"
-                        title="Editar Conductor"
-                      >
-                        <Edit className="w-4 h-4" />
-                      </button>*/}
+                     
                       <button 
                         onClick={() => openDeleteModal(conductor)}
                         className="text-red-500 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition duration-150"
