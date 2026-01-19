@@ -39,9 +39,9 @@ import {
 } from '../components/DocumentConfigManager';
 
 const CATEGORIAS = [
-  { id: 1, nombre: 'Documentos Personales', paso: 1, color: 'indigo', icon: '👤' },
-  { id: 2, nombre: 'Documentos Vehículo', paso: 2, color: 'emerald', icon: '🚗' },
-  { id: 3, nombre: 'Fotografías Vehículo', paso: 3, color: 'amber', icon: '📸' }
+  { id: 1, nombre: 'Documentos Personales', paso: 1, color: 'emerald', icon: '👤' },
+  { id: 2, nombre: 'Documentos Vehículo', paso: 2, color: 'green', icon: '🚗' },
+  { id: 3, nombre: 'Fotografías Vehículo', paso: 3, color: 'teal', icon: '📸' }
 ];
 
 // Componente para documento individual con drag and drop
@@ -78,8 +78,8 @@ function SortableDocumento({ doc, onEditar, onEliminar, onRestaurar, onToggleAct
       className={`group mb-3 bg-white border-2 rounded-xl transition-all duration-200 ${
         doc.activo
           ? isDragging
-            ? 'border-blue-400 shadow-2xl scale-105'
-            : 'border-gray-200 hover:border-blue-300 hover:shadow-md'
+            ? 'border-emerald-400 shadow-2xl scale-105'
+            : 'border-gray-200 hover:border-emerald-300 hover:shadow-lg'
           : 'border-red-200 bg-red-50/30 opacity-60'
       }`}
     >
@@ -161,46 +161,71 @@ function SortableDocumento({ doc, onEditar, onEliminar, onRestaurar, onToggleAct
               </button>
             </div>
 
-            {/* Control de Obligatorio/Opcional/Sin restricción */}
+            {/* Control de Obligatorio/Opcional/Sin restricción - Expandible */}
             <div className="flex items-center gap-2 mb-3">
               <span className="text-xs text-gray-600 font-medium">Estado:</span>
-              <div className="flex gap-1">
-                <button
-                  onClick={() => onCambiarRequerido(doc, 'obligatorio')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
-                    doc.requerido === true
-                      ? 'bg-rose-500 text-white shadow-md'
-                      : 'bg-rose-100 text-rose-600 hover:bg-rose-200'
-                  }`}
-                  title="Documento obligatorio"
-                >
-                  <ShieldAlert className="w-3.5 h-3.5" />
-                  Obligatorio
-                </button>
-                <button
-                  onClick={() => onCambiarRequerido(doc, 'opcional')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
-                    doc.requerido === false
-                      ? 'bg-sky-500 text-white shadow-md'
-                      : 'bg-sky-100 text-sky-600 hover:bg-sky-200'
-                  }`}
-                  title="Documento opcional"
-                >
-                  <Shield className="w-3.5 h-3.5" />
-                  Opcional
-                </button>
-                <button
-                  onClick={() => onCambiarRequerido(doc, 'ninguno')}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-all flex items-center gap-1 ${
-                    doc.requerido === null
-                      ? 'bg-gray-500 text-white shadow-md'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                  title="Sin restricción"
-                >
-                  <ShieldOff className="w-3.5 h-3.5" />
-                  Ninguno
-                </button>
+              <div className="group relative inline-flex">
+                {/* Estado actual visible */}
+                <div className="relative">
+                  {doc.requerido === true && (
+                    <div className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-red-600 text-white shadow-md flex items-center gap-1.5 cursor-pointer transition-all group-hover:shadow-lg">
+                      <ShieldAlert className="w-3.5 h-3.5" />
+                      Obligatorio
+                    </div>
+                  )}
+                  {doc.requerido === false && (
+                    <div className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-600 text-white shadow-md flex items-center gap-1.5 cursor-pointer transition-all group-hover:shadow-lg">
+                      <Shield className="w-3.5 h-3.5" />
+                      Opcional
+                    </div>
+                  )}
+                  {doc.requerido === null && (
+                    <div className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-white shadow-md flex items-center gap-1.5 cursor-pointer transition-all group-hover:shadow-lg">
+                      <ShieldOff className="w-3.5 h-3.5" />
+                      Ninguno
+                    </div>
+                  )}
+                </div>
+                
+                {/* Opciones expandidas al hover */}
+                <div className="absolute left-0 top-0 opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 flex gap-1 z-10">
+                  <button
+                    onClick={() => onCambiarRequerido(doc, 'obligatorio')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                      doc.requerido === true
+                        ? 'bg-red-600 text-white shadow-lg scale-105'
+                        : 'bg-red-100 text-red-700 hover:bg-red-200 hover:shadow-md'
+                    }`}
+                    title="Documento obligatorio"
+                  >
+                    <ShieldAlert className="w-3.5 h-3.5" />
+                    Obligatorio
+                  </button>
+                  <button
+                    onClick={() => onCambiarRequerido(doc, 'opcional')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                      doc.requerido === false
+                        ? 'bg-emerald-600 text-white shadow-lg scale-105'
+                        : 'bg-emerald-100 text-emerald-700 hover:bg-emerald-200 hover:shadow-md'
+                    }`}
+                    title="Documento opcional"
+                  >
+                    <Shield className="w-3.5 h-3.5" />
+                    Opcional
+                  </button>
+                  <button
+                    onClick={() => onCambiarRequerido(doc, 'ninguno')}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
+                      doc.requerido === null
+                        ? 'bg-slate-700 text-white shadow-lg scale-105'
+                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200 hover:shadow-md'
+                    }`}
+                    title="Sin restricción"
+                  >
+                    <ShieldOff className="w-3.5 h-3.5" />
+                    Ninguno
+                  </button>
+                </div>
               </div>
             </div>
 
@@ -272,6 +297,7 @@ export default function GestionDocumentos() {
   const [documentoEliminar, setDocumentoEliminar] = useState(null);
   const [importModalOpen, setImportModalOpen] = useState(false);
   const [importPreview, setImportPreview] = useState(null);
+  const [procesandoMovimiento, setProcesandoMovimiento] = useState(false);
   
   const auth = getAuth();
   const currentUser = auth.currentUser;
@@ -287,13 +313,17 @@ export default function GestionDocumentos() {
     cargarDocumentos();
   }, []);
   
-  const cargarDocumentos = async () => {
-    setLoading(true);
+  const cargarDocumentos = async (mostrarLoading = true) => {
+    if (mostrarLoading) {
+      setLoading(true);
+    }
     const result = await cargarConfiguracion();
     if (result.success) {
       setDocumentos(result.documentos);
     }
-    setLoading(false);
+    if (mostrarLoading) {
+      setLoading(false);
+    }
   };
   
   const getDocumentosPorPaso = (paso) => {
@@ -361,21 +391,35 @@ export default function GestionDocumentos() {
   };
   
   const handleRestaurarDocumento = async (doc) => {
+    // Actualización optimista inmediata
+    setDocumentos(prevDocs =>
+      prevDocs.map(d => d.id === doc.id ? { ...d, activo: true } : d)
+    );
+    
+    // Sincronizar con Firestore en background
     const result = await restoreDocument(
       doc.id,
       currentUser?.uid || 'admin',
       currentUser?.displayName || currentUser?.email || 'Administrador'
     );
     
-    if (result.success) {
-      await cargarDocumentos();
+    if (!result.success) {
+      // Si falla, revertir el cambio
+      setDocumentos(prevDocs =>
+        prevDocs.map(d => d.id === doc.id ? { ...d, activo: false } : d)
+      );
     }
   };
 
   const handleToggleActivo = async (doc) => {
-    // Toggle el estado activo
     const nuevoEstado = !doc.activo;
     
+    // Actualización optimista inmediata
+    setDocumentos(prevDocs =>
+      prevDocs.map(d => d.id === doc.id ? { ...d, activo: nuevoEstado } : d)
+    );
+    
+    // Sincronizar con Firestore en background
     const result = await updateDocument(
       doc.id,
       { activo: nuevoEstado },
@@ -383,8 +427,11 @@ export default function GestionDocumentos() {
       currentUser?.displayName || currentUser?.email || 'Administrador'
     );
     
-    if (result.success) {
-      await cargarDocumentos();
+    if (!result.success) {
+      // Si falla, revertir el cambio
+      setDocumentos(prevDocs =>
+        prevDocs.map(d => d.id === doc.id ? { ...d, activo: !nuevoEstado } : d)
+      );
     }
   };
 
@@ -398,6 +445,14 @@ export default function GestionDocumentos() {
       nuevoValor = null; // ninguno
     }
     
+    const valorAnterior = doc.requerido;
+    
+    // Actualización optimista inmediata
+    setDocumentos(prevDocs =>
+      prevDocs.map(d => d.id === doc.id ? { ...d, requerido: nuevoValor } : d)
+    );
+    
+    // Sincronizar con Firestore en background
     const result = await updateDocument(
       doc.id,
       { requerido: nuevoValor },
@@ -405,12 +460,17 @@ export default function GestionDocumentos() {
       currentUser?.displayName || currentUser?.email || 'Administrador'
     );
     
-    if (result.success) {
-      await cargarDocumentos();
+    if (!result.success) {
+      // Si falla, revertir el cambio
+      setDocumentos(prevDocs =>
+        prevDocs.map(d => d.id === doc.id ? { ...d, requerido: valorAnterior } : d)
+      );
     }
   };
 
   const handleMoverArriba = async (doc) => {
+    if (procesandoMovimiento) return; // Evitar múltiples llamadas
+    
     const docsDelPaso = documentos
       .filter(d => d.paso === doc.paso && d.activo)
       .sort((a, b) => a.orden - b.orden);
@@ -418,27 +478,48 @@ export default function GestionDocumentos() {
     const currentIndex = docsDelPaso.findIndex(d => d.id === doc.id);
     if (currentIndex <= 0) return; // Ya es el primero
     
-    // Intercambiar órdenes
+    setProcesandoMovimiento(true);
+    
     const docAnterior = docsDelPaso[currentIndex - 1];
+    const ordenTemp = doc.orden;
     
-    await updateDocument(
-      doc.id,
-      { orden: docAnterior.orden },
-      currentUser?.uid || 'admin',
-      currentUser?.displayName || currentUser?.email || 'Administrador'
+    // Actualización optimista: cambiar el estado local inmediatamente
+    setDocumentos(prevDocs => 
+      prevDocs.map(d => {
+        if (d.id === doc.id) return { ...d, orden: docAnterior.orden };
+        if (d.id === docAnterior.id) return { ...d, orden: ordenTemp };
+        return d;
+      })
     );
     
-    await updateDocument(
-      docAnterior.id,
-      { orden: doc.orden },
-      currentUser?.uid || 'admin',
-      currentUser?.displayName || currentUser?.email || 'Administrador'
-    );
-    
-    await cargarDocumentos();
+    // Actualizar en Firestore en paralelo
+    try {
+      await Promise.all([
+        updateDocument(
+          doc.id,
+          { orden: docAnterior.orden },
+          currentUser?.uid || 'admin',
+          currentUser?.displayName || currentUser?.email || 'Administrador'
+        ),
+        updateDocument(
+          docAnterior.id,
+          { orden: ordenTemp },
+          currentUser?.uid || 'admin',
+          currentUser?.displayName || currentUser?.email || 'Administrador'
+        )
+      ]);
+    } catch (error) {
+      console.error('Error al mover documento:', error);
+      // Si falla, recargar desde Firestore sin loading
+      await cargarDocumentos(false);
+    } finally {
+      setProcesandoMovimiento(false);
+    }
   };
 
   const handleMoverAbajo = async (doc) => {
+    if (procesandoMovimiento) return; // Evitar múltiples llamadas
+    
     const docsDelPaso = documentos
       .filter(d => d.paso === doc.paso && d.activo)
       .sort((a, b) => a.orden - b.orden);
@@ -446,24 +527,43 @@ export default function GestionDocumentos() {
     const currentIndex = docsDelPaso.findIndex(d => d.id === doc.id);
     if (currentIndex >= docsDelPaso.length - 1) return; // Ya es el último
     
-    // Intercambiar órdenes
+    setProcesandoMovimiento(true);
+    
     const docSiguiente = docsDelPaso[currentIndex + 1];
+    const ordenTemp = doc.orden;
     
-    await updateDocument(
-      doc.id,
-      { orden: docSiguiente.orden },
-      currentUser?.uid || 'admin',
-      currentUser?.displayName || currentUser?.email || 'Administrador'
+    // Actualización optimista: cambiar el estado local inmediatamente
+    setDocumentos(prevDocs => 
+      prevDocs.map(d => {
+        if (d.id === doc.id) return { ...d, orden: docSiguiente.orden };
+        if (d.id === docSiguiente.id) return { ...d, orden: ordenTemp };
+        return d;
+      })
     );
     
-    await updateDocument(
-      docSiguiente.id,
-      { orden: doc.orden },
-      currentUser?.uid || 'admin',
-      currentUser?.displayName || currentUser?.email || 'Administrador'
-    );
-    
-    await cargarDocumentos();
+    // Actualizar en Firestore en paralelo
+    try {
+      await Promise.all([
+        updateDocument(
+          doc.id,
+          { orden: docSiguiente.orden },
+          currentUser?.uid || 'admin',
+          currentUser?.displayName || currentUser?.email || 'Administrador'
+        ),
+        updateDocument(
+          docSiguiente.id,
+          { orden: ordenTemp },
+          currentUser?.uid || 'admin',
+          currentUser?.displayName || currentUser?.email || 'Administrador'
+        )
+      ]);
+    } catch (error) {
+      console.error('Error al mover documento:', error);
+      // Si falla, recargar desde Firestore sin loading
+      await cargarDocumentos(false);
+    } finally {
+      setProcesandoMovimiento(false);
+    }
   };
   
   const handleExportar = async () => {
@@ -535,7 +635,7 @@ export default function GestionDocumentos() {
     // Reordenar documentos
     const reorderedDocs = arrayMove(docsDelPaso, oldIndex, newIndex);
     
-    // Actualizar órdenes
+    // Actualización optimista inmediata
     const updatedDocumentos = documentos.map(doc => {
       if (doc.paso === activePaso && doc.activo) {
         const newOrder = reorderedDocs.findIndex(d => d.id === doc.id);
@@ -548,17 +648,20 @@ export default function GestionDocumentos() {
 
     setDocumentos(updatedDocumentos);
 
-    // Guardar en Firestore
-    await reorderDocuments(
-      active.id,
-      reorderedDocs.findIndex(d => d.id === active.id) + 1,
-      activePaso,
-      currentUser?.uid || 'admin',
-      currentUser?.displayName || currentUser?.email || 'Administrador'
-    );
-
-    // Recargar para asegurar consistencia
-    await cargarDocumentos();
+    // Guardar en Firestore en background
+    try {
+      await reorderDocuments(
+        active.id,
+        reorderedDocs.findIndex(d => d.id === active.id) + 1,
+        activePaso,
+        currentUser?.uid || 'admin',
+        currentUser?.displayName || currentUser?.email || 'Administrador'
+      );
+    } catch (error) {
+      console.error('Error al reordenar:', error);
+      // Si falla, recargar desde Firestore sin loading
+      await cargarDocumentos(false);
+    }
   };
   
   if (loading) {
@@ -579,7 +682,7 @@ export default function GestionDocumentos() {
       <div className="mb-8">
         <div className="flex items-center justify-between mb-6">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-2">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-2">
               Gestión de Documentos
             </h1>
             <p className="text-gray-600 text-lg">Configure los documentos requeridos para el registro de conductores</p>
@@ -589,7 +692,7 @@ export default function GestionDocumentos() {
             {/* Crear Nuevo */}
             <button
               onClick={handleCrearDocumento}
-              className="px-5 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all font-semibold flex items-center gap-2 shadow-lg shadow-blue-500/30 hover:shadow-xl"
+              className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105"
             >
               <Plus className="w-5 h-5" />
               Nuevo Documento
@@ -611,14 +714,14 @@ export default function GestionDocumentos() {
             {/* Exportar */}
             <button
               onClick={handleExportar}
-              className="px-4 py-2.5 bg-gradient-to-r from-green-600 to-green-700 text-white rounded-xl hover:from-green-700 hover:to-green-800 transition-all font-semibold flex items-center gap-2 shadow-lg shadow-green-500/30"
+              className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-xl hover:from-emerald-700 hover:to-emerald-800 transition-all font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl"
             >
               <Download className="w-4 h-4" />
               Exportar
             </button>
             
             {/* Importar */}
-            <label className="px-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all font-semibold flex items-center gap-2 cursor-pointer shadow-lg shadow-purple-500/30">
+            <label className="px-4 py-2.5 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl hover:from-teal-700 hover:to-teal-800 transition-all font-semibold flex items-center gap-2 cursor-pointer shadow-lg hover:shadow-xl">
               <Upload className="w-4 h-4" />
               Importar
               <input
@@ -638,9 +741,9 @@ export default function GestionDocumentos() {
             const docsRequeridos = docsCategoria.filter(d => d.requerido).length;
             
             const colorClasses = {
-              indigo: 'from-indigo-500 to-indigo-600',
               emerald: 'from-emerald-500 to-emerald-600',
-              amber: 'from-amber-500 to-amber-600'
+              green: 'from-green-500 to-green-600',
+              teal: 'from-teal-500 to-teal-600'
             };
             
             return (
@@ -668,17 +771,17 @@ export default function GestionDocumentos() {
           const docsCategoria = getDocumentosPorPaso(categoria.paso);
           
           const colorClasses = {
-            indigo: {
-              header: 'from-indigo-600 to-indigo-700',
-              button: 'bg-indigo-100 hover:bg-indigo-200 text-indigo-700'
-            },
             emerald: {
               header: 'from-emerald-600 to-emerald-700',
-              button: 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700'
+              button: 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 shadow-sm'
             },
-            amber: {
-              header: 'from-amber-600 to-amber-700',
-              button: 'bg-amber-100 hover:bg-amber-200 text-amber-700'
+            green: {
+              header: 'from-green-600 to-green-700',
+              button: 'bg-green-50 hover:bg-green-100 text-green-700 shadow-sm'
+            },
+            teal: {
+              header: 'from-teal-600 to-teal-700',
+              button: 'bg-teal-50 hover:bg-teal-100 text-teal-700 shadow-sm'
             }
           };
           
@@ -711,7 +814,7 @@ export default function GestionDocumentos() {
                     <p className="text-sm mb-4">Agrega el primer documento</p>
                     <button
                       onClick={handleCrearDocumento}
-                      className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium flex items-center gap-2"
+                      className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 transition-colors text-sm font-medium flex items-center gap-2 shadow-md hover:shadow-lg"
                     >
                       <Plus className="w-4 h-4" />
                       Agregar Documento

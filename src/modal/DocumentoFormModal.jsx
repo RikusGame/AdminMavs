@@ -6,9 +6,9 @@ import React, { useState, useEffect } from 'react';
 import { X, FileText, AlertCircle } from 'lucide-react';
 
 const CATEGORIAS = [
-  { value: 'Documentos Personales', label: 'Paso 1: Documentos Personales', paso: 1 },
-  { value: 'Documentos Vehículo', label: 'Paso 2: Documentos del Vehículo', paso: 2 },
-  { value: 'Fotografías Vehículo', label: 'Paso 3: Fotografías del Vehículo', paso: 3 }
+  { value: 'Documentos Personales', label: 'Paso 1: Documentos Personales', paso: 1, colorClass: 'bg-gradient-to-r from-purple-600 to-indigo-500 text-white' },
+  { value: 'Documentos Vehículo', label: 'Paso 2: Documentos del Vehículo', paso: 2, colorClass: 'bg-gradient-to-r from-green-600 to-emerald-500 text-white' },
+  { value: 'Fotografías Vehículo', label: 'Paso 3: Fotografías del Vehículo', paso: 3, colorClass: 'bg-gradient-to-r from-purple-600 to-fuchsia-500 text-white' }
 ];
 
 const TIPOS_CAMPO = [
@@ -24,6 +24,7 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
     nombre: '',
     categoria: 'Documentos Personales',
     tipo: 'foto',
+    // 'requerido' puede ser: true (obligatorio), false (opcional), null (ninguno)
     requerido: true,
     descripcion: '',
     orden: 1
@@ -234,24 +235,39 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
             </div>
           </div>
           
-          {/* Requerido */}
-          <div className="flex items-start gap-3">
-            <input
-              type="checkbox"
-              id="requerido"
-              checked={formData.requerido}
-              onChange={(e) => handleChange('requerido', e.target.checked)}
-              className="mt-1 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
-              disabled={isSaving}
-            />
-            <div>
-              <label htmlFor="requerido" className="text-sm font-medium text-gray-700 cursor-pointer">
-                ¿Es obligatorio?
-              </label>
-              <p className="text-xs text-gray-500 mt-1">
-                Los documentos obligatorios deben ser completados para habilitar al conductor
-              </p>
+          {/* Requerido - Control de 3 estados */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
+            <div className="inline-flex rounded-lg shadow-sm" role="tablist" aria-label="Estado documento">
+              <button
+                type="button"
+                onClick={() => handleChange('requerido', true)}
+                className={`px-4 py-2 rounded-l-lg border-2 transition-colors flex items-center gap-2 font-medium ${formData.requerido === true ? 'bg-red-600 text-white border-red-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-red-50'}`}
+                disabled={isSaving}
+              >
+                <span className="w-2 h-2 rounded-full bg-white/30" />
+                Obligatorio
+              </button>
+              <button
+                type="button"
+                onClick={() => handleChange('requerido', false)}
+                className={`px-4 py-2 border-t-2 border-b-2 transition-colors flex items-center gap-2 font-medium ${formData.requerido === false ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-blue-50'}`}
+                disabled={isSaving}
+              >
+                <span className="w-2 h-2 rounded-full bg-white/30" />
+                Opcional
+              </button>
+              <button
+                type="button"
+                onClick={() => handleChange('requerido', null)}
+                className={`px-4 py-2 rounded-r-lg border-2 transition-colors flex items-center gap-2 font-medium ${formData.requerido === null ? 'bg-gray-600 text-white border-gray-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
+                disabled={isSaving}
+              >
+                <span className="w-2 h-2 rounded-full bg-white/30" />
+                Ninguno
+              </button>
             </div>
+            <p className="text-xs text-gray-500 mt-2">Elige si el documento será obligatorio, opcional o no aplicará.</p>
           </div>
           
           {/* Descripción */}
@@ -296,10 +312,15 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
                     <p className="text-xs text-gray-500 mt-1">{formData.descripcion}</p>
                   )}
                 </div>
-                {formData.requerido && (
-                  <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded">
-                    OBLIGATORIO
-                  </span>
+                {/* Estado preview: Obligatorio / Opcional / Ninguno */}
+                {formData.requerido === true && (
+                  <span className="px-2 py-1 bg-red-100 text-red-800 text-xs font-semibold rounded">OBLIGATORIO</span>
+                )}
+                {formData.requerido === false && (
+                  <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs font-semibold rounded">OPCIONAL</span>
+                )}
+                {formData.requerido === null && (
+                  <span className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-semibold rounded">NINGUNO</span>
                 )}
               </div>
               <div className="mt-3 bg-gray-100 border-2 border-dashed border-gray-300 rounded h-20 flex items-center justify-center">
