@@ -8,6 +8,8 @@ import { Conductores } from "./pages/Conductores";
 import { Login } from "./pages/Login";
 import Banners from "./pages/Banners";
 import Documentos from "./pages/Documentos";
+import GestionDocumentos from "./pages/GestionDocumentos";
+// import InicializarConfig from "./pages/InicializarConfig"; // Ya no se usa en el panel
 import { PerfilUsuario } from "./pages/PerfilUsuario";
 import { PerfilConductor } from "./pages/PerfilConductor";
 import { QRManager } from "./components/QRManager";
@@ -70,6 +72,12 @@ export default function App() {
 
       case "documentos":
         return <Documentos />;
+      
+      case "gestion-documentos":
+        return <GestionDocumentos />;
+      
+      // case "inicializar-config":
+      //   return <InicializarConfig />; // Ruta deshabilitada (script de una sola vez)
       
       case "tarifas":
         return <Servicios />;

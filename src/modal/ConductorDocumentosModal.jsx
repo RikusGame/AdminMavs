@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Eye, FileText, User, Car } from 'lucide-react';
-import { db } from '../config/firebase';
-import { doc, updateDoc } from 'firebase/firestore';
+import { cargarConfiguracion } from '../components/DocumentConfigManager';
 
-const DOCUMENT_MAP = {
+// Fallback estático por si falla la carga de configuración dinámica
+const DOCUMENT_MAP_FALLBACK = {
   fotoAntecedentesPenales: 'Antecedentes Penales',
   fotoCarneIdentidadAnverso: 'C.I. Anverso',
   fotoCarneIdentidadReverso: 'C.I. Reverso',
@@ -16,7 +16,7 @@ const DOCUMENT_MAP = {
   fotoVehiculo1: 'Foto Vehículo 1',
   fotoVehiculo2: 'Foto Vehículo 2',
   fotoVehiculo3: 'Foto Vehículo 3',
-  fotoVehiculo4: 'Foto Vehículo 4'
+  fotoVehiculo4: 'Foto Vehículo 4',
 };
 
 export function ConductorDocumentosModal({ conductor, onClose }) {
@@ -24,58 +24,60 @@ export function ConductorDocumentosModal({ conductor, onClose }) {
 
   const documentosVehiculo = conductor.documentosVehiculo || {};
   const perfilTaxista = conductor.perfilTaxista || {};
-  
-  const getVerificadoKey = (key) => {
-    const mapping = {
-      fotoAntecedentesPenales: 'verificadoAntecedentesPenales',
-      fotoCarneIdentidadAnverso: 'verificadoCarneIdentidadAnverso',
-      fotoCarneIdentidadReverso: 'verificadoCarneIdentidadReverso',
-      fotoConductor: 'verificadoFotoConductor',
-      fotoLicenciaConducirAnverso: 'verificadoLicenciaConducirAnverso',
-      fotoLicenciaConducirReverso: 'verificadoLicenciaConducirReverso',
-      fotoPermisoCirculacion: 'verificadoPermisoCirculacion',
-      fotoRevisionTecnica: 'verificadoRevisionTecnica',
-      fotoSoat: 'verificadoSoat',
-      fotoVehiculo1: 'verificadoFotoVehiculo1',
-      fotoVehiculo2: 'verificadoFotoVehiculo2',
-      fotoVehiculo3: 'verificadoFotoVehiculo3',
-      fotoVehiculo4: 'verificadoFotoVehiculo4'
+  const [configDocs, setConfigDocs] = useState([]);
+  const [loadingConfig, setLoadingConfig] = useState(true);
+
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const config = await cargarConfiguracion();
+        if (config && config.success && Array.isArray(config.documentos)) {
+          const activos = config.documentos.filter((doc) => doc.activo);
+          setConfigDocs(activos);
+        } else {
+          // Fallback: usar mapa estático
+          const fallback = Object.entries(DOCUMENT_MAP_FALLBACK).map(
+            ([id, nombre]) => ({ id, nombre, activo: true })
+          );
+          setConfigDocs(fallback);
+        }
+      } catch (error) {
+        console.error('❌ Error al cargar configuración de documentos:', error);
+        const fallback = Object.entries(DOCUMENT_MAP_FALLBACK).map(
+          ([id, nombre]) => ({ id, nombre, activo: true })
+        );
+        setConfigDocs(fallback);
+      } finally {
+        setLoadingConfig(false);
+      }
     };
-    return mapping[key];
+
+    loadConfig();
+  }, []);
+
+  // Helper para obtener la key de verificación: fotoConductor -> verificadoFotoConductor
+  const getVerificadoKey = (id) => {
+    if (!id || typeof id !== 'string') return null;
+    const capitalizedKey = id.charAt(0).toUpperCase() + id.slice(1);
+    return `verificado${capitalizedKey}`;
   };
 
-  const documentosArray = Object.keys(DOCUMENT_MAP)
-    .filter(key => documentosVehiculo[key])
-    .map(key => ({
-      key,
-      nombre: DOCUMENT_MAP[key],
-      url: documentosVehiculo[key],
-      verificado: documentosVehiculo[getVerificadoKey(key)] || false
-    }));
+  // Construimos el arreglo de documentos a mostrar basado en la configuración
+  const documentosArray = configDocs.map((docCfg) => {
+    const url = documentosVehiculo[docCfg.id];
+    const verificadoKey = getVerificadoKey(docCfg.id);
+    const verificadoFlag = verificadoKey
+      ? documentosVehiculo[verificadoKey] === true
+      : false;
 
-  const [verificaciones, setVerificaciones] = useState(
-    documentosArray.reduce((acc, doc) => {
-      acc[doc.key] = doc.verificado;
-      return acc;
-    }, {})
-  );
-
-  const handleSwitchChange = async (docKey, isChecked) => {
-    try {
-      const verificadoKey = getVerificadoKey(docKey);
-      
-      await updateDoc(doc(db, 'taxistas', conductor.id), {
-        [`documentosVehiculo.${verificadoKey}`]: isChecked
-      });
-      
-      setVerificaciones(prev => ({
-        ...prev,
-        [docKey]: isChecked
-      }));
-    } catch (error) {
-      console.error('Error al actualizar verificación:', error);
-    }
-  };
+    return {
+      key: docCfg.id,
+      nombre: docCfg.nombre,
+      url,
+      // "Aprobado" solo cuando el flag verificado* está en true
+      verificado: verificadoFlag,
+    };
+  });
 
   return (
     <div 
@@ -133,7 +135,11 @@ export function ConductorDocumentosModal({ conductor, onClose }) {
         </div>
 
         <div className="p-6 space-y-4">
-          {documentosArray.length > 0 ? (
+          {loadingConfig ? (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 text-center text-gray-500 text-sm">
+              Cargando configuración de documentos...
+            </div>
+          ) : documentosArray.length > 0 ? (
             <div className="space-y-3">
               {documentosArray.map((doc) => (
                 <div key={doc.key} className="bg-gray-50 rounded-lg p-4">
@@ -143,30 +149,25 @@ export function ConductorDocumentosModal({ conductor, onClose }) {
                       <div>
                         <h4 className="font-medium text-gray-800">{doc.nombre}</h4>
                         <span className={`inline-block px-2 py-1 rounded-full text-xs font-medium mt-1 ${
-                          verificaciones[doc.key] ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
+                          doc.verificado ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'
                         }`}>
-                          {verificaciones[doc.key] ? 'Aprobado' : 'Pendiente'}
+                          {doc.verificado ? 'Aprobado' : 'Pendiente'}
                         </span>
                       </div>
                     </div>
                     
                     <div className="flex items-center gap-3">
                       <button
-                        onClick={() => window.open(doc.url, '_blank')}
-                        className="flex items-center gap-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm"
+                        onClick={() => doc.url && window.open(doc.url, '_blank')}
+                        disabled={!doc.url}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm transition ${
+                          doc.url
+                            ? 'bg-blue-600 text-white hover:bg-blue-700'
+                            : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                        }`}
                       >
                         <Eye className="w-4 h-4" /> Previsualizar
                       </button>
-                      
-                      <label className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          type="checkbox"
-                          checked={verificaciones[doc.key]}
-                          onChange={(e) => handleSwitchChange(doc.key, e.target.checked)}
-                          className="sr-only peer"
-                        />
-                        <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#a8d96f]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#a8d96f]"></div>
-                      </label>
                     </div>
                   </div>
                 </div>

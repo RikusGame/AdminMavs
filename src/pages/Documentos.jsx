@@ -1,48 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../config/firebase';
 import { collection, query, onSnapshot, doc, updateDoc } from 'firebase/firestore';
-import { FileText, CheckCircle, XCircle, Search, Eye, Loader2, Users, Truck } from 'lucide-react'; 
+import { FileText, CheckCircle, XCircle, Search, Eye, Loader2, Users, Truck } from 'lucide-react';
+import { cargarConfiguracion } from '../components/DocumentConfigManager';
 
-
-
-// Solo documentos obligatorios en el mapa principal
-// fotoVehiculo2 es opcional y se mostrará si existe
-const DOCUMENT_MAP = {
-  fotoAntecedentesPenales: { name: 'Antecedentes Penales', category: 'General' },
-  fotoCarneIdentidadAnverso: { name: 'C.I. Anverso', category: 'Identificación' },
-  fotoCarneIdentidadReverso: { name: 'C.I. Reverso', category: 'Identificación' },
-  fotoConductor: { name: 'Foto del Conductor', category: 'Identificación' },
-  fotoLicenciaConducirAnverso: { name: 'Licencia Anverso', category: 'Licencia' },
-  fotoLicenciaConducirReverso: { name: 'Licencia Reverso', category: 'Licencia' },
-  fotoPermisoCirculacion: { name: 'Permiso de Circulación', category: 'Vehículo' },
-  fotoRevisionTecnica: { name: 'Revisión Técnica', category: 'Vehículo' },
-  fotoSoat: { name: 'SOAT', category: 'Vehículo' },
-  fotoVehiculo1: { name: 'Foto del Vehículo 1', category: 'Vehículo' },
-  fotoVehiculo2: { name: 'Foto del Vehículo 2', category: 'Vehículo', optional: true },
+// NOTA: Este mapa estático se mantiene como fallback si falla la carga de configuración
+const DOCUMENT_MAP_FALLBACK = {
+  fotoAntecedentesPenales: { name: 'Antecedentes Penales', category: 'General', requerido: true },
+  fotoCarneIdentidadAnverso: { name: 'C.I. Anverso', category: 'Identificación', requerido: true },
+  fotoCarneIdentidadReverso: { name: 'C.I. Reverso', category: 'Identificación', requerido: true },
+  fotoConductor: { name: 'Foto del Conductor', category: 'Identificación', requerido: true },
+  fotoLicenciaConducirAnverso: { name: 'Licencia Anverso', category: 'Licencia', requerido: true },
+  fotoLicenciaConducirReverso: { name: 'Licencia Reverso', category: 'Licencia', requerido: true },
+  fotoPermisoCirculacion: { name: 'Permiso de Circulación', category: 'Vehículo', requerido: true },
+  fotoRevisionTecnica: { name: 'Revisión Técnica', category: 'Vehículo', requerido: true },
+  fotoSoat: { name: 'SOAT', category: 'Vehículo', requerido: true },
+  fotoVehiculo1: { name: 'Foto del Vehículo 1', category: 'Vehículo', requerido: true },
+  fotoVehiculo2: { name: 'Foto del Vehículo 2', category: 'Vehículo', requerido: false },
 };
 
-const CATEGORIES = [
-  'Todos',
-  'Identificación',
-  'Licencia',
-  'Vehículo',
-  'General',
-];
-
-
-const transformDriverData = (driver) => {
+const transformDriverData = (driver, documentMap) => {
   const documents = [];
   const vehicleDocs = driver.documentosVehiculo || {};
   const driverProfile = driver.perfilTaxista || {};
 
-
-  Object.entries(DOCUMENT_MAP).forEach(([key, info]) => {
+  Object.entries(documentMap).forEach(([key, info]) => {
     const url = vehicleDocs[key];
     // Capitalize first letter of the field name: fotoConductor -> FotoConductor
     const capitalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
     const verificationKey = `verificado${capitalizedKey}`;
     const isVerified = vehicleDocs[verificationKey] === true;
-
 
     if (url) {
       documents.push({
@@ -79,6 +66,45 @@ const Documentos = () => {
   const [modalTitle, setModalTitle] = useState('');
   const [updating, setUpdating] = useState(new Set());
   const [pauseListener, setPauseListener] = useState(false);
+  const [documentMap, setDocumentMap] = useState(DOCUMENT_MAP_FALLBACK);
+  const [categories, setCategories] = useState(['Todos', 'Identificación', 'Licencia', 'Vehículo', 'General']);
+
+  // Cargar configuración de documentos al montar el componente
+  useEffect(() => {
+    const loadConfig = async () => {
+      try {
+        const config = await cargarConfiguracion();
+        if (config && config.success && config.documentos && config.documentos.length > 0) {
+          // Convertir array de documentos a mapa
+          const map = {};
+          const cats = new Set(['Todos']);
+          
+          config.documentos.filter(doc => doc.activo).forEach(doc => {
+            map[doc.id] = {
+              name: doc.nombre,
+              category: doc.categoria,
+              requerido: doc.requerido
+            };
+            cats.add(doc.categoria);
+          });
+          
+          setDocumentMap(map);
+          setCategories(Array.from(cats));
+          console.log('✅ Configuración de documentos cargada desde Firestore');
+        } else {
+          console.log('⚠️ Usando configuración fallback de documentos');
+          // Asegurar que tenemos la configuración fallback
+          setDocumentMap(DOCUMENT_MAP_FALLBACK);
+        }
+      } catch (error) {
+        console.error('❌ Error al cargar configuración de documentos:', error);
+        // En caso de error, usar fallback
+        setDocumentMap(DOCUMENT_MAP_FALLBACK);
+      }
+    };
+    
+    loadConfig();
+  }, []);
 
   const toggleDocumentVerification = async (driverId, docKey, currentState) => {
     const updateKey = `${driverId}-${docKey}`;
@@ -107,10 +133,10 @@ const Documentos = () => {
     );
     
     // Verificar si TODOS los documentos OBLIGATORIOS están habilitados
-    // Excluir documentos opcionales (fotoVehiculo2, fotoVehiculo3, fotoVehiculo4)
+    // Usar la configuración dinámica para determinar cuáles son obligatorios
     const obligatoryDocs = updatedDocs.filter(doc => {
-      const docInfo = DOCUMENT_MAP[doc.id];
-      return !docInfo?.optional;
+      const docInfo = documentMap[doc.id];
+      return docInfo && docInfo.requerido !== false;
     });
     
     const allDocsVerified = obligatoryDocs.length > 0 && obligatoryDocs.every(doc => doc.isVerified);
@@ -193,7 +219,7 @@ const Documentos = () => {
       };
       
       // Actualizar todos los campos verificado* según el nuevo estado
-      Object.keys(DOCUMENT_MAP).forEach(key => {
+      Object.keys(documentMap).forEach(key => {
         // Capitalize first letter: fotoConductor -> FotoConductor
         const capitalizedKey = key.charAt(0).toUpperCase() + key.slice(1);
         const verificadoKey = `verificado${capitalizedKey}`;
@@ -236,7 +262,7 @@ const Documentos = () => {
       const driversList = [];
       snapshot.forEach((doc) => {
         const driverData = { id: doc.id, ...doc.data() };
-        driversList.push(transformDriverData(driverData));
+        driversList.push(transformDriverData(driverData, documentMap));
       });
       setDrivers(driversList);
       setLoading(false);
@@ -246,7 +272,7 @@ const Documentos = () => {
     });
 
     return () => unsubscribe();
-  }, []); 
+  }, [pauseListener, documentMap]); 
 
 
   const openDocumentModal = (url, name) => {
@@ -321,8 +347,8 @@ const Documentos = () => {
   });
 
   const DocumentCard = ({ doc, onOpen, driverId }) => {
-    const docInfo = DOCUMENT_MAP[doc.id];
-    const isOptional = docInfo?.optional || false;
+    const docInfo = documentMap[doc.id];
+    const isOptional = docInfo?.requerido === false;
     
     return (
       <div className={`p-4 rounded-lg border transition-all
@@ -539,7 +565,7 @@ const Documentos = () => {
             onChange={(e) => setFilterCategory(e.target.value)}
             className="md:w-56 bg-white border border-gray-300 rounded-lg py-2 px-4 text-gray-700 focus:border-[#a8d96f] transition"
           >
-            {CATEGORIES.map(category => (
+            {categories.map(category => (
               <option key={category} value={category}>{`Filtrar: ${category}`}</option>
             ))}
           </select>

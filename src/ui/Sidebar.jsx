@@ -14,6 +14,7 @@ import {
   DollarSign,
   HelpCircle,
   X,
+  Settings,
 } from "lucide-react";
 import { useEffect, useState, useMemo } from "react";
 
@@ -37,6 +38,18 @@ export function Sidebar({ activeSection, setActiveSection }) {
       icon: FileText,
       section: "cuentas",
     },
+    {
+      id: "gestion-documentos",
+      label: "Gestión Documentos",
+      icon: Settings,
+      section: "configuración",
+    },
+    // {
+    //   id: "inicializar-config",
+    //   label: "⚙️ Inicializar Config",
+    //   icon: Settings,
+    //   section: "configuración",
+    // }, // Oculto: script de inicialización que ya no se debe usar desde el panel
     { id: "qr-recarga", label: "QR de Recarga", icon: CreditCard, section: "configuración" },
     { id: "banners", label: "Banners", icon: Flag, section: "configuración" },
     { id: "tarifas", label: "Servicios", icon: DollarSign, section: "configuración" },

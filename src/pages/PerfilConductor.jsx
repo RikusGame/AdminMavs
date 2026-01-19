@@ -39,6 +39,14 @@ export function PerfilConductor({ conductorId, onBack }) {
           
           const perfil = data.perfilTaxista || {};
           const vehiculo = data.vehiculo || {};
+
+          // Intentar obtener el teléfono desde múltiples posibles campos
+          const telefonoConductor =
+            perfil.telefono ||
+            data.telefono ||
+            data.celular ||
+            data.phone ||
+            "N/A";
           
           // Leer saldo desde el documento billetera/saldo
           let saldoActual = 0;
@@ -62,7 +70,7 @@ export function PerfilConductor({ conductorId, onBack }) {
             id: conductorSnapshot.id,
             nombre: perfil.nombre || "Nombre No Disponible",
             email: perfil.correo || "Correo No Disponible",
-            telefono: perfil.telefono || "N/A",
+            telefono: telefonoConductor,
             fotoPerfilUrl: perfil.FotoPerfil || perfil.fotoPerfil || null,
             habilitado: data.habilitado || false,
             saldo: saldoActual,
