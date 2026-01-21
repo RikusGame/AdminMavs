@@ -891,9 +891,13 @@ export default function GestionDocumentos() {
                     </>
                   ) : (
                     <>
-                      ¿Está seguro que desea eliminar el documento <strong>"{documentoEliminar.nombre}"</strong>?
-                      <br /><br />
-                      Esta acción ocultará el documento de nuevos registros.
+                     <h3 className="text-lg font-bold text-red-700 mb-2">
+                      Eliminar Documento Adicional
+                    </h3>
+                    <p className="text-sm text-gray-600 mb-4">
+                      Esta acción <strong>eliminará definitivamente</strong> el documento "{documentoEliminar.nombre}".
+                      No se podrá recuperar.
+                    </p>
                     </>
                   )}
                 </p>

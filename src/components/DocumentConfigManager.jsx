@@ -244,29 +244,54 @@ export async function deleteDocument(docId, adminUID, adminNombre) {
     
     const documento = documentos[index];
     
-    // Marcar como inactivo (eliminación lógica)
-    documentos[index] = {
-      ...documento,
-      activo: false,
-      fechaEliminacion: new Date().toISOString(),
-      eliminadoPor: adminNombre
-    };
+    let accionRealizada = 'eliminar';
+    let cambiosRealizados = null;
+    
+    if (documento.esBase) {
+      // Soft delete para documentos base
+      documentos[index] = {
+        ...documento,
+        activo: false,
+        fechaEliminacion: new Date().toISOString(),
+        eliminadoPor: adminNombre
+      };
+      
+      cambiosRealizados = { 
+        documentoInactivado: documento,
+        motivo: 'Protección de documento base del sistema'
+      };
+      
+      console.log(`🔒 Documento base inactivado (soft delete): ${documento.nombre}`);
+    } else {
+      // Hard delete para documentos adicionales
+      documentos.splice(index, 1); // Remover de la lista
+      
+      cambiosRealizados = { 
+        documentoEliminadoFisicamente: documento,
+        motivo: 'Eliminación definitiva de documento adicional'
+      };
+      
+      console.log(`🗑️ Documento adicional eliminado físicamente: ${documento.nombre}`);
+    }
     
     // Guardar configuración actualizada
     const resultado = await guardarConfiguracion(documentos, adminUID, adminNombre);
     
     if (resultado.success) {
-      // Registrar en historial
+      // Registrar en historial (diferenciar el tipo de eliminación)
       await registrarEnHistorial(
-        'eliminar',
+        documento.esBase ? 'inactivar_base' : 'eliminar_adicional',
         { id: docId, nombre: documento.nombre, esBase: documento.esBase },
-        { documentoEliminado: documento },
+        cambiosRealizados,
         adminUID,
         adminNombre
       );
       
-      console.log(`✅ Documento eliminado: ${documento.nombre}`);
-      return { success: true, documento: documentos[index] };
+      return { 
+        success: true, 
+        documento, 
+        tipoEliminacion: documento.esBase ? 'soft' : 'hard' 
+      };
     }
     
     return resultado;
@@ -406,7 +431,7 @@ export async function exportConfig() {
         totalDocuments: config.documentos.length,
         documentosBase: config.documentos.filter(d => d.esBase).length,
         documentosAdicionales: config.documentos.filter(d => !d.esBase).length,
-        documentosActivos: config.documentos.filter(d => d.activo).length,
+        documentoszs: config.documentos.filter(d => d.activo).length,
         documentosInactivos: config.documentos.filter(d => !d.activo).length
       },
       documentos: config.documentos
