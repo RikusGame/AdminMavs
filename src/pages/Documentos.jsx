@@ -50,6 +50,9 @@ const transformDriverData = (driver, documentMap) => {
     vehiculo: {
         marca: vehicleDocs.marca || 'N/A',
         color: vehicleDocs.color || 'N/A',
+        modelo: vehicleDocs.modelo || vehicleDocs.model || 'N/A',
+        placa: vehicleDocs.placa || vehicleDocs.numeroPlaca || vehicleDocs.plate || 'N/A',
+        tipoVehiculo: vehicleDocs.tipoVehiculo || vehicleDocs.tipo || 'N/A',
     }
   };
 };
@@ -429,11 +432,19 @@ const Documentos = () => {
           </div>
         </div>
         
-        <div className="text-right p-2 bg-white rounded-lg border">
-            <p className="text-sm font-semibold text-gray-700 flex items-center">
-                <Truck className="w-4 h-4 mr-1"/> {driver.vehiculo.marca}
-            </p>
-            <p className="text-xs text-gray-600">Color: {driver.vehiculo.color}</p>
+        <div className="text-left p-1 bg-white rounded-lg border min-w-[220px] sm:w-52 md:w-80 lg:w-96">
+          <p className="text-sm font-semibold text-gray-700 flex items-center mb-1">
+            <Truck className="w-4 h-4 mr-1" /> {driver.vehiculo.marca || 'N/A'}
+          </p>
+
+          <div className="grid grid-cols-[auto_auto_auto] gap-x-0 gap-y-0.5 justify-items-start text-[11px] text-gray-600">
+            <div className="pr-1">Color: <span className="font-medium text-gray-700">{driver.vehiculo.color || 'N/A'}</span></div>
+            <div className="pr-1">Modelo: <span className="font-medium text-gray-700">{driver.vehiculo.modelo || 'N/A'}</span></div>
+            <div className="pr-1">Placa: <span className="font-medium text-gray-700">{String(driver.vehiculo.placa || 'N/A').toUpperCase()}</span></div>
+            <div className="pr-1">Tipo: <span className="font-medium text-gray-700">{driver.vehiculo.tipoVehiculo || 'N/A'}</span></div>
+            <div className="pr-1">CI: <span className="font-medium text-gray-700">{driver.ci || driver.CI || driver.carnet || 'N/A'}</span></div>
+            <div className="pr-1">Género: <span className="font-medium text-gray-700">{driver.genero || driver.sexo || 'N/A'}</span></div>
+          </div>
         </div>
       </div>
       

@@ -93,7 +93,7 @@ export function ConductorDocumentosModal({ conductor, onClose }) {
       `}</style>
       
       <div 
-        className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-out scale-100"
+        className="bg-white rounded-xl shadow-2xl w-full max-w-xl max-h-[90vh] overflow-y-auto transform transition-all duration-300 ease-out scale-100"
         onClick={(e) => e.stopPropagation()} 
         style={{ animation: 'modal-pop-in 0.3s ease-out forwards' }} 
       >
@@ -123,12 +123,21 @@ export function ConductorDocumentosModal({ conductor, onClose }) {
               </div>
             </div>
             
-            <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+            <div className="flex items-start gap-1 p-2 bg-gray-50 rounded-lg">
               <Car className="w-5 h-5 text-[#a8d96f]" />
-              <div>
-                <p className="font-semibold text-gray-800">{documentosVehiculo.marca || 'N/A'}</p>
-                <p className="text-sm text-gray-600">Color: {documentosVehiculo.color || 'N/A'}</p>
-                <p className="text-xs text-gray-500">Asientos: {documentosVehiculo.numeroAsientos || 'N/A'}</p>
+              <div className="w-full">
+                <p className="font-semibold text-gray-800 mb-1">{documentosVehiculo.marca || 'N/A'}</p>
+
+                <div className="grid grid-cols-[auto_auto_auto] md:grid-cols-[auto_auto_auto] gap-x-0 gap-y-0.5 justify-items-start text-[12px] text-gray-600">
+                  <div className="pr-1">Color: <span className="font-medium text-gray-700">{documentosVehiculo.color || 'N/A'}</span></div>
+                  <div className="pr-1">Modelo: <span className="font-medium text-gray-700">{documentosVehiculo.modelo || documentosVehiculo.model || 'N/A'}</span></div>
+                  <div className="pr-1">Placa: <span className="font-medium text-gray-700">{String(documentosVehiculo.placa || documentosVehiculo.numeroPlaca || 'N/A').toUpperCase()}</span></div>
+                  <div className="pr-1">Tipo: <span className="font-medium text-gray-700">{documentosVehiculo.tipoVehiculo || documentosVehiculo.tipo || 'N/A'}</span></div>
+                  <div className="pr-1">CI: <span className="font-medium text-gray-700">{perfilTaxista.ci || perfilTaxista.CI || perfilTaxista.carnet || 'N/A'}</span></div>
+                  <div className="pr-1">Género: <span className="font-medium text-gray-700">{perfilTaxista.genero || perfilTaxista.sexo || 'N/A'}</span></div>
+                </div>
+
+                <p className="text-xs text-gray-500 mt-1">Asientos: {documentosVehiculo.numeroAsientos || 'N/A'}</p>
               </div>
             </div>
           </div>
