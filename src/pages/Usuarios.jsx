@@ -246,7 +246,6 @@ export function Usuarios({ onSelectUsuario }) {
                 <th className="text-left py-3 px-4">Información de Usuario</th>
                 <th className="text-left py-3 px-4">Correo Electrónico</th>
                 <th className="text-left py-3 px-4">Teléfono</th>
-                <th className="text-left py-3 px-4">Modo</th>
                 <th className="text-left py-3 px-4">Acciones</th>
               </tr>
             </thead>
@@ -284,18 +283,9 @@ export function Usuarios({ onSelectUsuario }) {
                   >
                     {usuario.nombre}
                   </td>
-                  <td className="py-3 px-4 text-red-500">{usuario.email}</td>
+                  <td className="py-3 px-4 text-green-700">{usuario.email}</td>
                   <td className="py-3 px-4">{usuario.telefono}</td>
-                  <td className="py-3 px-4">
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-                        usuario.modo === 'pasajero' ? 'bg-blue-100 text-blue-800' :
-                        usuario.modo === 'taxista' ? 'bg-green-100 text-green-800' :
-                        'bg-gray-100 text-gray-600'
-                    }`}>
-                        {usuario.modo.charAt(0).toUpperCase() + usuario.modo.slice(1)}
-                    </span>
-                  </td>
-                  
+                                    
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
                       

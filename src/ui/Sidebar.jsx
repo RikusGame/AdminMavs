@@ -52,13 +52,13 @@ export function Sidebar({ activeSection, setActiveSection }) {
     // }, // Oculto: script de inicialización que ya no se debe usar desde el panel
     { id: "qr-recarga", label: "QR de Recarga", icon: CreditCard, section: "configuración" },
     { id: "banners", label: "Banners", icon: Flag, section: "configuración" },
-    { id: "tarifas", label: "Servicios", icon: DollarSign, section: "configuración" },
-    {
+    { id: "tarifas  ", label: "Servicios", icon: DollarSign, section: "configuración" },
+    /*{
       id: "plan-suscripcion",
       label: "Plan de Suscripción",
       icon: CreditCard,
       section: "en construcción",
-    },
+    },*/
     { id: "preguntas-frecuentes", label: "Preguntas Frecuentes", icon: HelpCircle, section: "en construcción" },
     { id: "reglas", label: "Reglas de conductores", icon: Ruler, section: "en construcción" },
   ];

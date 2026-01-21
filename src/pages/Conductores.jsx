@@ -292,7 +292,7 @@ export function Conductores({ onSelectConductor }) {
                       <span className="font-medium hover:underline">{conductor.nombre}</span>
                     </div>
                   </td>
-                  <td className="py-3 px-4 text-sm text-red-500">{conductor.email}</td>
+                  <td className="py-3 px-4 text-sm text-green-700">{conductor.email}</td>
                   <td className="py-3 px-4 text-sm">{conductor.telefono}</td>
                   
                   <td className="py-3 px-4">

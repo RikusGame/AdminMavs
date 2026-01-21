@@ -179,12 +179,12 @@ function SortableDocumento({ doc, onEditar, onEliminar, onRestaurar, onToggleAct
                       Opcional
                     </div>
                   )}
-                  {doc.requerido === null && (
+                  {/*{doc.requerido === null && (
                     <div className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-700 text-white shadow-md flex items-center gap-1.5 cursor-pointer transition-all group-hover:shadow-lg">
                       <ShieldOff className="w-3.5 h-3.5" />
                       Ninguno
                     </div>
-                  )}
+                  )}*/}
                 </div>
                 
                 {/* Opciones expandidas al hover */}
@@ -213,7 +213,7 @@ function SortableDocumento({ doc, onEditar, onEliminar, onRestaurar, onToggleAct
                     <Shield className="w-3.5 h-3.5" />
                     Opcional
                   </button>
-                  <button
+                  {/*<button
                     onClick={() => onCambiarRequerido(doc, 'ninguno')}
                     className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all flex items-center gap-1.5 ${
                       doc.requerido === null
@@ -224,7 +224,7 @@ function SortableDocumento({ doc, onEditar, onEliminar, onRestaurar, onToggleAct
                   >
                     <ShieldOff className="w-3.5 h-3.5" />
                     Ninguno
-                  </button>
+                  </button>*/}
                 </div>
               </div>
             </div>
@@ -566,7 +566,7 @@ export default function GestionDocumentos() {
     }
   };
   
-  const handleExportar = async () => {
+  {/*const handleExportar = async () => {
     await exportConfig();
   };
   
@@ -586,7 +586,7 @@ export default function GestionDocumentos() {
     };
     reader.readAsText(file);
     e.target.value = ''; // Reset input
-  };
+  };*/}
   
   const confirmarImportacion = async () => {
     if (!importPreview) return;
@@ -712,16 +712,17 @@ export default function GestionDocumentos() {
             </button>
             
             {/* Exportar */}
-            <button
+            {/*<button
               onClick={handleExportar}
               className="px-4 py-2.5 bg-gradient-to-r from-emerald-600 to-emerald-700 text-white rounded-xl hover:from-emerald-700 hover:to-emerald-800 transition-all font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl"
             >
               <Download className="w-4 h-4" />
               Exportar
             </button>
+            */}
             
             {/* Importar */}
-            <label className="px-4 py-2.5 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl hover:from-teal-700 hover:to-teal-800 transition-all font-semibold flex items-center gap-2 cursor-pointer shadow-lg hover:shadow-xl">
+            {/*<label className="px-4 py-2.5 bg-gradient-to-r from-teal-600 to-teal-700 text-white rounded-xl hover:from-teal-700 hover:to-teal-800 transition-all font-semibold flex items-center gap-2 cursor-pointer shadow-lg hover:shadow-xl">
               <Upload className="w-4 h-4" />
               Importar
               <input
@@ -730,7 +731,7 @@ export default function GestionDocumentos() {
                 onChange={handleImportar}
                 className="hidden"
               />
-            </label>
+            </label>*/}
           </div>
         </div>
         
