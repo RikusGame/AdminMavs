@@ -75,7 +75,7 @@ function SortableDocumento({ doc, onEditar, onEliminar, onRestaurar, onToggleAct
     <div
       ref={setNodeRef}
       style={style}
-      className={`group mb-3 bg-white border-2 rounded-xl transition-all duration-200 ${
+      className={`group mb-3 bg-white border-2 rounded-xl transition-all duration-300 ease-in-out ${
         doc.activo
           ? isDragging
             ? 'border-emerald-400 shadow-2xl scale-105'
@@ -377,17 +377,30 @@ export default function GestionDocumentos() {
   const confirmarEliminacion = async () => {
     if (!documentoEliminar) return;
     
+    // Mostrar estado de carga en el botón
+    const docId = documentoEliminar.id;
+    setLoading(true);
+    
+    // Actualización optimista: remover el documento de la UI inmediatamente
+    setDocumentos(prevDocs => prevDocs.filter(d => d.id !== docId));
+    
+    // Cerrar el modal inmediatamente para una experiencia más fluida
+    setShowDeleteConfirm(false);
+    setDocumentoEliminar(null);
+    
+    // Sincronizar con Firestore en background
     const result = await deleteDocument(
-      documentoEliminar.id,
+      docId,
       currentUser?.uid || 'admin',
       currentUser?.displayName || currentUser?.email || 'Administrador'
     );
     
-    if (result.success) {
+    if (!result.success) {
+      // Si falla, recargar los documentos para restaurar el estado correcto
       await cargarDocumentos();
-      setShowDeleteConfirm(false);
-      setDocumentoEliminar(null);
     }
+    
+    setLoading(false);
   };
   
   const handleRestaurarDocumento = async (doc) => {
@@ -869,41 +882,36 @@ export default function GestionDocumentos() {
       
       {/* Modal de confirmación de eliminación */}
       {showDeleteConfirm && documentoEliminar && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4 animate-in fade-in duration-200">
+          <div className={`bg-white rounded-lg shadow-xl w-full ${documentoEliminar.esBase ? 'max-w-md p-6' : 'max-w-sm p-4'} animate-in zoom-in-95 duration-200`}>
             <div className="flex items-start gap-4 mb-4">
-              <div className={`p-3 rounded-full ${documentoEliminar.esBase ? 'bg-red-100' : 'bg-orange-100'}`}>
-                <AlertTriangle className={`w-6 h-6 ${documentoEliminar.esBase ? 'text-red-600' : 'text-orange-600'}`} />
+              <div className={`rounded-full ${documentoEliminar.esBase ? 'p-3 bg-red-100' : 'p-2 bg-orange-100'}`}>
+                <AlertTriangle className={`${documentoEliminar.esBase ? 'w-6 h-6 text-red-600' : 'w-5 h-5 text-orange-600'}`} />
               </div>
               <div className="flex-1">
-                <h3 className="text-lg font-bold text-gray-900 mb-2">
+                <h3 className={`font-bold text-gray-900 mb-2 ${documentoEliminar.esBase ? 'text-lg' : 'text-base'}`}>
                   {documentoEliminar.esBase ? '⚠️ ELIMINAR DOCUMENTO BASE DEL SISTEMA' : 'Eliminar Documento'}
                 </h3>
-                <p className="text-sm text-gray-600 mb-4">
+                <p className="text-sm text-gray-600">
                   {documentoEliminar.esBase ? (
                     <>
-                      <strong>Este documento forma parte de la estructura original.</strong>
+                      <strong>Este documento forma parte de la estructura original del sistema.</strong>
                       <br /><br />
-                      Los conductores existentes mantendrán este documento pero nuevos registros no lo verán.
-                      Esta acción puede afectar el funcionamiento del sistema.
+                      Esta acción <strong>eliminará definitivamente</strong> el documento de la base de datos y no se podrá recuperar.
                       <br /><br />
-                      ¿Está seguro que desea continuar?
+                      Si desea mantener el documento pero deshabilitarlo temporalmente, use el toggle <strong>"Activo/Inactivo"</strong> en lugar del botón Eliminar.
+                      <br /><br />
+                      <span className="text-red-600 font-semibold">¿Está seguro que desea eliminar definitivamente este documento?</span>
                     </>
                   ) : (
                     <>
-                     <h3 className="text-lg font-bold text-red-700 mb-2">
-                      Eliminar Documento Adicional
-                    </h3>
-                    <p className="text-sm text-gray-600 mb-4">
-                      Esta acción <strong>eliminará definitivamente</strong> el documento "{documentoEliminar.nombre}".
-                      No se podrá recuperar.
-                    </p>
+                      ¿Está seguro que desea eliminar el documento <strong>"{documentoEliminar.nombre}"</strong>?
                     </>
                   )}
                 </p>
                 
                 {documentoEliminar.esBase && (
-                  <div className="bg-red-50 border border-red-200 rounded p-3 mb-4">
+                  <div className="bg-red-50 border border-red-200 rounded p-3 mt-4">
                     <label className="flex items-start gap-2 text-sm cursor-pointer">
                       <input type="checkbox" className="mt-1" required />
                       <span className="text-red-800">
