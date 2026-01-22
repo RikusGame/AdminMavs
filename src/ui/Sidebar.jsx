@@ -52,7 +52,7 @@ export function Sidebar({ activeSection, setActiveSection }) {
     // }, // Oculto: script de inicialización que ya no se debe usar desde el panel
     { id: "qr-recarga", label: "QR de Recarga", icon: CreditCard, section: "configuración" },
     { id: "banners", label: "Banners", icon: Flag, section: "configuración" },
-    { id: "tarifas  ", label: "Servicios", icon: DollarSign, section: "configuración" },
+    { id: "tarifas", label: "Servicios", icon: DollarSign, section: "configuración" },
     /*{
       id: "plan-suscripcion",
       label: "Plan de Suscripción",
