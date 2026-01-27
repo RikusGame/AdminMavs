@@ -251,20 +251,11 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
               <button
                 type="button"
                 onClick={() => handleChange('requerido', false)}
-                className={`px-4 py-2 border-t-2 border-b-2 transition-colors flex items-center gap-2 font-medium ${formData.requerido === false ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-blue-50'}`}
+                className={`px-4 py-2 rounded-r-lg border-2 transition-colors flex items-center justify-between gap-2 font-medium ${formData.requerido === false ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-blue-50'}`}
                 disabled={isSaving}
               >
+                <span className={`font-medium ${formData.requerido === false ? 'text-white' : 'text-gray-700'}`}>Opcional</span>
                 <span className="w-2 h-2 rounded-full bg-white/30" />
-                Opcional
-              </button>
-              <button
-                type="button"
-                onClick={() => handleChange('requerido', null)}
-                className={`px-4 py-2 rounded-r-lg border-2 transition-colors flex items-center gap-2 font-medium ${formData.requerido === null ? 'bg-gray-600 text-white border-gray-600' : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-50'}`}
-                disabled={isSaving}
-              >
-                <span className="w-2 h-2 rounded-full bg-white/30" />
-                Ninguno
               </button>
             </div>
             <p className="text-xs text-gray-500 mt-2">Elige si el documento será obligatorio, opcional o no aplicará.</p>

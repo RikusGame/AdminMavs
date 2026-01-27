@@ -2,6 +2,8 @@ import { useState, useEffect } from "react";
 import { Search, Edit, Trash2, UserCircle, FileText } from "lucide-react"; 
 import { db } from "../config/firebase";
 import { collection, onSnapshot, query, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { storage } from "../config/firebase";
+import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { ConductorDocumentosModal } from "../modal/ConductorDocumentosModal";
 import EditConductorModal from "../modal/EditConductorModal";
 import DeleteAlert from "../components/DeleteAlert";
@@ -29,33 +31,68 @@ export function Conductores({ onSelectConductor }) {
 
     const unsubscribe = onSnapshot(
       q,
-      (snapshot) => {
-        const taxistasData = snapshot.docs
-          .map((doc) => {
+      async (snapshot) => {
+        try {
+          const docsPromises = snapshot.docs.map(async (doc) => {
             const data = doc.data();
 
             const perfil = data.perfilTaxista || {};
-            const documentos = data.documentosVehiculo || {}; 
-            
+            const documentos = data.documentosVehiculo || {};
+
+            // Debug: mostrar todos los campos posibles de foto
+            if (!perfil.FotoPerfil && !perfil.fotoPerfil && !data.fotoPerfil && !data.photoURL) {
+              console.log(`🔍 Campos disponibles para ${perfil.nombre || doc.id}:`, {
+                'perfil.FotoPerfil': perfil.FotoPerfil,
+                'perfil.fotoPerfil': perfil.fotoPerfil,
+                'perfil.photoURL': perfil.photoURL,
+                'data.fotoPerfil': data.fotoPerfil,
+                'data.photoURL': data.photoURL,
+                'data.fotoPerfilUrl': data.fotoPerfilUrl,
+                'perfil completo': perfil
+              });
+            }
+
+            // Prioridad: FotoPerfil > fotoPerfil > fotoPerfil del root > photoURL del provider > fotoPerfilUrl
+            let foto = perfil.FotoPerfil || perfil.fotoPerfil || data.fotoPerfil || perfil.photoURL || data.photoURL || data.fotoPerfilUrl || "";
+
+            console.log(`📸 Foto original para ${perfil.nombre || doc.id}:`, foto);
+
+            // Si existe el campo pero no es una URL completa, intentar obtener downloadURL desde Storage
+            if (foto && typeof foto === 'string' && !foto.startsWith('http')) {
+              try {
+                const url = await getDownloadURL(storageRef(storage, foto));
+                console.log(`✅ URL resuelta desde Storage para ${perfil.nombre || doc.id}:`, url);
+                foto = url;
+              } catch (err) {
+                console.warn(`⚠️ No se pudo resolver foto desde Storage para ${perfil.nombre || doc.id}:`, err.message || err);
+              }
+            }
+
             return {
               id: doc.id,
               nombre: perfil.nombre || "N/A",
               email: perfil.correo || "N/A",
               telefono: perfil.telefono || "N/A",
-              fotoPerfilUrl: perfil.FotoPerfil || perfil.fotoPerfil || "",
+              fotoPerfilUrl: foto || "",
               documentos: documentos,
               habilitado: data.habilitado || false,
             };
-          })
-          // Filtrar solo conductores con nombre y correo completados
-          .filter(conductor => {
-            const tieneNombre = conductor.nombre && conductor.nombre !== "N/A" && conductor.nombre.trim() !== "";
-            const tieneCorreo = conductor.email && conductor.email !== "N/A" && conductor.email !== "Correo No Disponible" && conductor.email.trim() !== "";
-            return tieneNombre && tieneCorreo;
           });
 
-        setConductores(taxistasData);
-        setLoading(false);
+          const taxistasData = (await Promise.all(docsPromises))
+            .filter(conductor => {
+              const tieneNombre = conductor.nombre && conductor.nombre !== "N/A" && conductor.nombre.trim() !== "";
+              const tieneCorreo = conductor.email && conductor.email !== "N/A" && conductor.email !== "Correo No Disponible" && conductor.email.trim() !== "";
+              return tieneNombre && tieneCorreo;
+            });
+
+          console.log(`✅ ${taxistasData.length} conductores cargados con fotos procesadas`);
+          setConductores(taxistasData);
+          setLoading(false);
+        } catch (err) {
+          console.error('❌ Error procesando snapshots de taxistas:', err);
+          setLoading(false);
+        }
       },
       (error) => {
         console.error("Error al obtener los datos de taxistas:", error);
@@ -274,7 +311,7 @@ export function Conductores({ onSelectConductor }) {
                 <tr key={conductor.id} className="border-b hover:bg-gray-50">
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-3 cursor-pointer hover:text-blue-600 transition" onClick={() => onSelectConductor(conductor.id)}>
-                      {conductor.fotoPerfilUrl ? (
+                      {conductor.fotoPerfilUrl && conductor.fotoPerfilUrl.trim() !== '' ? (
                         <img
                           src={conductor.fotoPerfilUrl}
                           alt={`Foto de ${conductor.nombre}`}
@@ -282,10 +319,17 @@ export function Conductores({ onSelectConductor }) {
                           onError={(e) => {
                             const target = e.target;
                             target.style.display = "none";
+                            const placeholder = target.nextElementSibling;
+                            if (placeholder) placeholder.style.display = "flex";
                           }}
                         />
-                      ) : (
+                      ) : null}
+                      {!conductor.fotoPerfilUrl || conductor.fotoPerfilUrl.trim() === '' ? (
                         <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center">
+                          <UserCircle className="w-6 h-6 text-white" />
+                        </div>
+                      ) : (
+                        <div className="w-10 h-10 bg-gray-300 rounded-full flex items-center justify-center" style={{ display: 'none' }}>
                           <UserCircle className="w-6 h-6 text-white" />
                         </div>
                       )}

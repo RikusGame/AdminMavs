@@ -45,6 +45,7 @@ const transformDriverData = (driver, documentMap) => {
   return {
     ...driverProfile,
     uid: driver.id,
+    createdAt: driver.createdAt || null,
     documents: documents,
     habilitado: vehicleDocs.habilitado || false,
     vehiculo: {
@@ -61,7 +62,6 @@ const transformDriverData = (driver, documentMap) => {
 const Documentos = () => {
   const [drivers, setDrivers] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [filterCategory, setFilterCategory] = useState('Todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
@@ -70,7 +70,7 @@ const Documentos = () => {
   const [updating, setUpdating] = useState(new Set());
   const [pauseListener, setPauseListener] = useState(false);
   const [documentMap, setDocumentMap] = useState(DOCUMENT_MAP_FALLBACK);
-  const [categories, setCategories] = useState(['Todos', 'Identificación', 'Licencia', 'Vehículo', 'General']);
+  const [filterApproval, setFilterApproval] = useState('Todos');
 
   // Cargar configuración de documentos al montar el componente
   useEffect(() => {
@@ -80,19 +80,16 @@ const Documentos = () => {
         if (config && config.success && config.documentos && config.documentos.length > 0) {
           // Convertir array de documentos a mapa
           const map = {};
-          const cats = new Set(['Todos']);
-          
+
           config.documentos.filter(doc => doc.activo).forEach(doc => {
             map[doc.id] = {
               name: doc.nombre,
               category: doc.categoria,
               requerido: doc.requerido
             };
-            cats.add(doc.categoria);
           });
-          
+
           setDocumentMap(map);
-          setCategories(Array.from(cats));
           console.log('✅ Configuración de documentos cargada desde Firestore');
         } else {
           console.log('⚠️ Usando configuración fallback de documentos');
@@ -261,12 +258,22 @@ const Documentos = () => {
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
       if (pauseListener) return;
-      
+
       const driversList = [];
       snapshot.forEach((doc) => {
-        const driverData = { id: doc.id, ...doc.data() };
+        const data = doc.data() || {};
+        const createdAt = doc.createTime ? doc.createTime.toDate().toISOString() : (data.fechaCreacion || null);
+        const driverData = { id: doc.id, createdAt, ...data };
         driversList.push(transformDriverData(driverData, documentMap));
       });
+
+      // Ordenar por fecha de creación descendente (más recientes arriba)
+      driversList.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+        const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+        return dateB - dateA;
+      });
+
       setDrivers(driversList);
       setLoading(false);
     }, (error) => {
@@ -331,22 +338,16 @@ const Documentos = () => {
   };
 
 
-  const filteredDrivers = drivers.map(driver => {
-
-    const filteredDocuments = driver.documents.filter(doc => {
-      const categoryMatch = filterCategory === 'Todos' || doc.category === filterCategory;
-      return categoryMatch;
-    });
-
-    return { ...driver, documents: filteredDocuments };
-  }).filter(driver => {
-
+  const filteredDrivers = drivers.filter(driver => {
     const normalizedSearch = searchTerm.toLowerCase();
     const nameMatch = driver.nombre?.toLowerCase().includes(normalizedSearch);
     const uidMatch = driver.uid?.toLowerCase().includes(normalizedSearch);
     const emailMatch = driver.correo?.toLowerCase().includes(normalizedSearch);
 
-    return (nameMatch || uidMatch || emailMatch) && driver.documents.length > 0;
+    // Mantener todos los documentos por conductor; filtrar a nivel conductor por aprobación
+    const approvalOk = filterApproval === 'Todos' || (filterApproval === 'Pendientes' && driver.documents.some(d => !d.isVerified));
+
+    return (nameMatch || uidMatch || emailMatch) && driver.documents.length > 0 && approvalOk;
   });
 
   const DocumentCard = ({ doc, onOpen, driverId }) => {
@@ -571,14 +572,14 @@ const Documentos = () => {
             )}
           </div>
 
+          {/* Select de categoría removido (no funciona correctamente) */}
           <select
-            value={filterCategory}
-            onChange={(e) => setFilterCategory(e.target.value)}
+            value={filterApproval}
+            onChange={(e) => setFilterApproval(e.target.value)}
             className="md:w-56 bg-white border border-gray-300 rounded-lg py-2 px-4 text-gray-700 focus:border-[#a8d96f] transition"
           >
-            {categories.map(category => (
-              <option key={category} value={category}>{`Filtrar: ${category}`}</option>
-            ))}
+            <option value="Todos">Mostrar: Todos</option>
+            <option value="Pendientes">Mostrar: Pendientes</option>
           </select>
         </div>
       </div>

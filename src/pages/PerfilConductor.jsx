@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
-import { db } from "../config/firebase";
+import { db, storage } from "../config/firebase";
 import { doc, getDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, collectionGroup, where } from "firebase/firestore";
+import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { ArrowLeft, Mail, Phone, TrendingUp, TrendingDown, MapPin, DollarSign, Calendar, CreditCard, CheckCircle } from 'lucide-react';
 import { AgregarMontoModal } from "../modal/AgregarMontoModal";
 
@@ -66,12 +67,28 @@ export function PerfilConductor({ conductorId, onBack }) {
           
           console.log("📄 Datos del conductor:", { perfil, vehiculo, saldoActual });
           
+          // Prioridad: FotoPerfil > fotoPerfil > fotoPerfil del root > photoURL del provider
+          let foto = perfil.FotoPerfil || perfil.fotoPerfil || data.fotoPerfil || data.photoURL || null;
+
+          console.log(`📸 Foto original para ${perfil.nombre}:`, foto);
+
+          // Si existe el campo pero no es una URL completa, intentar obtener downloadURL desde Storage
+          if (foto && typeof foto === 'string' && !foto.startsWith('http')) {
+            try {
+              const url = await getDownloadURL(storageRef(storage, foto));
+              console.log(`✅ URL resuelta desde Storage:`, url);
+              foto = url;
+            } catch (err) {
+              console.warn(`⚠️ No se pudo resolver foto desde Storage:`, err.message || err);
+            }
+          }
+          
           setConductor({
             id: conductorSnapshot.id,
             nombre: perfil.nombre || "Nombre No Disponible",
             email: perfil.correo || "Correo No Disponible",
             telefono: telefonoConductor,
-            fotoPerfilUrl: perfil.FotoPerfil || perfil.fotoPerfil || null,
+            fotoPerfilUrl: foto,
             habilitado: data.habilitado || false,
             saldo: saldoActual,
             viajes: data.viajes || 0,
@@ -246,14 +263,24 @@ export function PerfilConductor({ conductorId, onBack }) {
             <div className="px-6 pb-6">
               {/* Avatar */}
               <div className="flex justify-center -mt-16 mb-4">
-                {conductor.fotoPerfilUrl ? (
+                {conductor.fotoPerfilUrl && conductor.fotoPerfilUrl.trim() !== '' ? (
                   <img 
                     src={conductor.fotoPerfilUrl} 
                     alt={conductor.nombre}
                     className="w-24 h-24 rounded-full object-cover border-4 border-white shadow-lg"
+                    onError={(e) => {
+                      e.target.style.display = "none";
+                      const placeholder = e.target.nextElementSibling;
+                      if (placeholder) placeholder.style.display = "flex";
+                    }}
                   />
-                ) : (
+                ) : null}
+                {!conductor.fotoPerfilUrl || conductor.fotoPerfilUrl.trim() === '' ? (
                   <div className="w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-lg bg-green-500">
+                    {conductor.nombre.charAt(0).toUpperCase()}
+                  </div>
+                ) : (
+                  <div className="w-24 h-24 rounded-full flex items-center justify-center text-white text-3xl font-bold border-4 border-white shadow-lg bg-green-500" style={{ display: 'none' }}>
                     {conductor.nombre.charAt(0).toUpperCase()}
                   </div>
                 )}
