@@ -33,8 +33,22 @@ export function Conductores({ onSelectConductor }) {
       q,
       async (snapshot) => {
         try {
-          const docsPromises = snapshot.docs.map(async (doc) => {
+          const docsPromises = snapshot.docs.map(async (doc, index) => {
             const data = doc.data();
+            
+            // Capturar fecha de registro del conductor desde perfilTaxista
+            const fechaRegistro = data.fechaRegistro || data.perfilTaxista?.fechaRegistro;
+            let createdAt = null;
+            
+            if (fechaRegistro) {
+              // Si fechaRegistro existe, convertirlo a Date
+              if (fechaRegistro.toDate) {
+                // Es un Timestamp de Firestore
+                createdAt = fechaRegistro.toDate().toISOString();
+              } else if (typeof fechaRegistro === 'string') {
+                createdAt = fechaRegistro;
+              }
+            }
 
             const perfil = data.perfilTaxista || {};
             const documentos = data.documentosVehiculo || {};
@@ -76,6 +90,7 @@ export function Conductores({ onSelectConductor }) {
               fotoPerfilUrl: foto || "",
               documentos: documentos,
               habilitado: data.habilitado || false,
+              createdAt: createdAt,
             };
           });
 
@@ -84,9 +99,20 @@ export function Conductores({ onSelectConductor }) {
               const tieneNombre = conductor.nombre && conductor.nombre !== "N/A" && conductor.nombre.trim() !== "";
               const tieneCorreo = conductor.email && conductor.email !== "N/A" && conductor.email !== "Correo No Disponible" && conductor.email.trim() !== "";
               return tieneNombre && tieneCorreo;
+            })
+            .sort((a, b) => {
+              // Ordenar por fecha de registro descendente (más recientes arriba)
+              const dateA = a.createdAt ? new Date(a.createdAt) : new Date(0);
+              const dateB = b.createdAt ? new Date(b.createdAt) : new Date(0);
+              return dateB - dateA;
             });
 
           console.log(`✅ ${taxistasData.length} conductores cargados con fotos procesadas`);
+          console.log('🔍 ORDENAMIENTO - Primeros 5 conductores:', taxistasData.slice(0, 5).map(c => ({
+            nombre: c.nombre,
+            email: c.email,
+            createdAt: c.createdAt
+          })));
           setConductores(taxistasData);
           setLoading(false);
         } catch (err) {

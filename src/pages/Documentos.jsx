@@ -262,7 +262,20 @@ const Documentos = () => {
       const driversList = [];
       snapshot.forEach((doc) => {
         const data = doc.data() || {};
-        const createdAt = doc.createTime ? doc.createTime.toDate().toISOString() : (data.fechaCreacion || null);
+        
+        // Capturar fecha de registro desde perfilTaxista.fechaRegistro
+        const fechaRegistro = data.fechaRegistro || data.perfilTaxista?.fechaRegistro;
+        let createdAt = null;
+        
+        if (fechaRegistro) {
+          if (fechaRegistro.toDate) {
+            // Es un Timestamp de Firestore
+            createdAt = fechaRegistro.toDate().toISOString();
+          } else if (typeof fechaRegistro === 'string') {
+            createdAt = fechaRegistro;
+          }
+        }
+        
         const driverData = { id: doc.id, createdAt, ...data };
         driversList.push(transformDriverData(driverData, documentMap));
       });
