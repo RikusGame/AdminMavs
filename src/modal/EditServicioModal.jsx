@@ -1,15 +1,18 @@
 import { useState, useEffect } from "react";
 import { db, storage } from "../config/firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, getDoc } from "firebase/firestore";
 import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { X, Upload, Trash2, Plus, Minus } from "lucide-react";
+import { X, Upload, Trash2, Plus, Minus, CheckCircle } from "lucide-react";
 
 export function EditServicioModal({ servicio, onClose }) {
   const [cargando, setCargando] = useState(false);
+  const [nombre, setNombre] = useState(servicio.nombre || "");
   const [activo, setActivo] = useState(servicio.activo);
   const [logo, setLogo] = useState(null);
   const [logoPreview, setLogoPreview] = useState(servicio.logo || "");
   const [logoOriginal, setLogoOriginal] = useState(servicio.logo || "");
+  const [mostrarExito, setMostrarExito] = useState(false);
+  const [resultadoActualizacion, setResultadoActualizacion] = useState(null);
 
   // Tarifas
   const [tarifaBase, setTarifaBase] = useState(servicio.tarifas?.tarifaBase?.toString() || "0.00");
@@ -129,7 +132,7 @@ export function EditServicioModal({ servicio, onClose }) {
 
       // Preparar datos actualizados
       const servicioData = {
-        servicio: servicio.nombre,
+        servicio: nombre,
         activo: activo,
         logo: logoUrl,
         icono: servicio.icono || "local_taxi",
@@ -156,30 +159,74 @@ export function EditServicioModal({ servicio, onClose }) {
         }
       };
 
-      // Actualizar en Firestore (solo este departamento)
+      // Actualizar en Firestore (solo este departamento con tarifas completas)
       const docRef = doc(db, "empresas", "mujeresalvolante", "tarifas", servicio.departamento);
       await updateDoc(docRef, {
         [servicio.servicioKey]: servicioData
       });
+      console.log(`✅ Actualizado departamento actual: ${servicio.departamento}`);
 
-      // Si se cambió el logo, actualizar en todos los departamentos
-      if (logo || (!logoPreview && logoOriginal)) {
-        const departamentos = ["La Paz", "Santa Cruz", "Cochabamba", "Chuquisaca", "Oruro", "Potosí", "Tarija", "Pando", "Beni"];
-        for (const dept of departamentos) {
-          if (dept !== servicio.departamento) {
-            try {
-              const deptDocRef = doc(db, "empresas", "mujeresalvolante", "tarifas", dept);
-              await updateDoc(deptDocRef, {
-                [`${servicio.servicioKey}.logo`]: logoUrl
-              });
-            } catch (error) {
-              console.warn(`No se pudo actualizar logo en ${dept}:`, error);
+      // Lista de departamentos
+      const departamentos = ["Cochabamba", "La Paz", "Santa Cruz", "Chuquisaca", "Oruro", "Potosí", "Tarija", "Pando", "Beni"];
+      
+      // Actualizar nombre y logo en todos los otros departamentos en paralelo
+      const promesas = departamentos
+        .filter(dept => dept !== servicio.departamento)
+        .map(async (dept) => {
+          try {
+            const deptDocRef = doc(db, "empresas", "mujeresalvolante", "tarifas", dept);
+            const deptSnap = await getDoc(deptDocRef);
+            
+            if (deptSnap.exists()) {
+              const data = deptSnap.data();
+              
+              // Solo actualizar si el servicio existe
+              if (data[servicio.servicioKey]) {
+                const updates = {};
+                
+                // Actualizar nombre si cambió
+                if (nombre !== servicio.nombre) {
+                  updates[`${servicio.servicioKey}.servicio`] = nombre;
+                }
+                
+                // Actualizar logo
+                updates[`${servicio.servicioKey}.logo`] = logoUrl;
+                
+                if (Object.keys(updates).length > 0) {
+                  await updateDoc(deptDocRef, updates);
+                  console.log(`✅ Actualizado: ${dept}`);
+                  return { dept, success: true };
+                }
+              } else {
+                console.log(`⚠️ Servicio no existe en: ${dept}`);
+                return { dept, success: false, reason: 'no existe' };
+              }
+            } else {
+              console.log(`⚠️ Documento no existe: ${dept}`);
+              return { dept, success: false, reason: 'documento no existe' };
             }
+          } catch (error) {
+            console.error(`❌ Error en ${dept}:`, error);
+            return { dept, success: false, error: error.message };
           }
-        }
-      }
+        });
 
-      onClose();
+      const resultados = await Promise.all(promesas);
+      const exitosos = resultados.filter(r => r && r.success).length;
+      console.log(`📊 Resumen: ${exitosos}/${departamentos.length - 1} departamentos actualizados`);
+
+      // Mostrar modal de éxito personalizado
+      setResultadoActualizacion({
+        total: exitosos + 1,
+        nombre: nombre
+      });
+      setMostrarExito(true);
+      
+      // Cerrar después de 2 segundos
+      setTimeout(() => {
+        setMostrarExito(false);
+        onClose();
+      }, 2000);
     } catch (error) {
       console.error("Error al actualizar servicio:", error);
       alert("Error al actualizar el servicio");
@@ -189,7 +236,35 @@ export function EditServicioModal({ servicio, onClose }) {
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+    <>
+      {/* Modal de Éxito */}
+      {mostrarExito && resultadoActualizacion && (
+        <div className="fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full transform animate-bounce-in">
+            <div className="p-8 text-center">
+              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <CheckCircle className="w-10 h-10 text-green-500" />
+              </div>
+              <h3 className="text-2xl font-bold text-gray-800 mb-2">
+                ¡Actualización Exitosa!
+              </h3>
+              <p className="text-gray-600 mb-4">
+                El servicio <span className="font-bold text-green-600">"{resultadoActualizacion.nombre}"</span> ha sido actualizado
+              </p>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p className="text-lg font-semibold text-green-700">
+                  {resultadoActualizacion.total} departamentos actualizados
+                </p>
+                <p className="text-sm text-green-600 mt-1">
+                  Los cambios se reflejarán en toda la plataforma
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg w-full max-w-4xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b px-6 py-4 flex items-center justify-between z-10">
           <div>
@@ -205,6 +280,29 @@ export function EditServicioModal({ servicio, onClose }) {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
+          {/* Nombre del Servicio - DESTACADO */}
+          <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+              </svg>
+              <label className="text-lg font-bold text-gray-800">
+                Nombre del Servicio
+              </label>
+            </div>
+            <input
+              type="text"
+              value={nombre}
+              onChange={(e) => setNombre(e.target.value)}
+              placeholder="Ej: Mujeres Al Volante"
+              className="w-full px-4 py-3 text-lg border-2 border-green-400 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-600 font-medium"
+              required
+            />
+            <p className="text-sm text-gray-600 mt-2">
+              💡 Este nombre se actualizará en <strong>todos los departamentos</strong>
+            </p>
+          </div>
+
           {/* Nota informativa */}
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
             <p className="text-sm text-blue-800">
@@ -467,5 +565,6 @@ export function EditServicioModal({ servicio, onClose }) {
         </form>
       </div>
     </div>
+    </>
   );
 }

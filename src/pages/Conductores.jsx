@@ -36,6 +36,11 @@ export function Conductores({ onSelectConductor }) {
           const docsPromises = snapshot.docs.map(async (doc, index) => {
             const data = doc.data();
             
+            // Solo procesar si es modo taxista
+            if (data.modo !== 'taxista') {
+              return null;
+            }
+            
             // Capturar fecha de registro del conductor desde perfilTaxista
             const fechaRegistro = data.fechaRegistro || data.perfilTaxista?.fechaRegistro;
             let createdAt = null;
@@ -82,6 +87,20 @@ export function Conductores({ onSelectConductor }) {
               }
             }
 
+            // Verificar documentos OBLIGATORIOS para conductores
+            const documentosObligatorios = [
+              'fotoCarneIdentidadAnverso',
+              'fotoCarneIdentidadReverso', 
+              'fotoLicenciaConducirAnverso',
+              'fotoLicenciaConducirReverso',
+              'fotoConductor'
+            ];
+            
+            // Debe tener al menos los 5 documentos obligatorios
+            const tieneDocumentos = documentosObligatorios.every(campo => 
+              documentos[campo] && documentos[campo].trim() !== ''
+            );
+
             return {
               id: doc.id,
               nombre: perfil.nombre || "N/A",
@@ -89,16 +108,19 @@ export function Conductores({ onSelectConductor }) {
               telefono: perfil.telefono || "N/A",
               fotoPerfilUrl: foto || "",
               documentos: documentos,
-              habilitado: data.habilitado || false,
+              habilitado: documentos.habilitado || false,
+              tieneDocumentos: tieneDocumentos,
               createdAt: createdAt,
             };
           });
 
           const taxistasData = (await Promise.all(docsPromises))
             .filter(conductor => {
+              if (!conductor) return false; // Filtrar nulls (no taxistas)
               const tieneNombre = conductor.nombre && conductor.nombre !== "N/A" && conductor.nombre.trim() !== "";
               const tieneCorreo = conductor.email && conductor.email !== "N/A" && conductor.email !== "Correo No Disponible" && conductor.email.trim() !== "";
-              return tieneNombre && tieneCorreo;
+              const tieneDocumentos = conductor.tieneDocumentos; // Solo mostrar si tiene documentos
+              return tieneNombre && tieneCorreo && tieneDocumentos;
             })
             .sort((a, b) => {
               // Ordenar por fecha de registro descendente (más recientes arriba)
@@ -107,7 +129,7 @@ export function Conductores({ onSelectConductor }) {
               return dateB - dateA;
             });
 
-          console.log(`✅ ${taxistasData.length} conductores cargados con fotos procesadas`);
+          console.log(`✅ ${taxistasData.length} conductores cargados (filtrados por nombre y correo válidos)`);
           console.log('🔍 ORDENAMIENTO - Primeros 5 conductores:', taxistasData.slice(0, 5).map(c => ({
             nombre: c.nombre,
             email: c.email,
@@ -191,7 +213,7 @@ export function Conductores({ onSelectConductor }) {
     try {
       const conductorRef = doc(db, "taxistas", conductorId);
       await updateDoc(conductorRef, {
-        habilitado: !currentState
+        "documentosVehiculo.habilitado": !currentState
       });
     } catch (error) {
       console.error("Error al actualizar estado del conductor:", error);
@@ -201,7 +223,9 @@ export function Conductores({ onSelectConductor }) {
   const aprobarTodos = async () => {
     try {
       const updates = conductores.map(conductor => 
-        updateDoc(doc(db, "taxistas", conductor.id), { habilitado: true })
+        updateDoc(doc(db, "taxistas", conductor.id), { 
+          "documentosVehiculo.habilitado": true 
+        })
       );
       await Promise.all(updates);
     } catch (error) {
