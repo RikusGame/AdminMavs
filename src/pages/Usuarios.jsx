@@ -13,7 +13,6 @@ export function Usuarios({ onSelectUsuario }) {
   const [loading, setLoading] = useState(true);
   const [selectedUsers, setSelectedUsers] = useState([]);
   const [modoFilter, setModoFilter] = useState('todos');
-  const [estadoFilter, setEstadoFilter] = useState('todos');
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [usuarioToDelete, setUsuarioToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -32,12 +31,19 @@ export function Usuarios({ onSelectUsuario }) {
           .map((doc) => {
             const data = doc.data();
             const perfil = data.perfil || {};
+            const documentosVehiculo = data.documentosVehiculo || {};
 
             let telefonoRaw = perfil.telefono || "N/A";
             let telefono = telefonoRaw;
             if (telefonoRaw !== "N/A" && telefonoRaw.startsWith(perfil.codigoPais)) {
               telefono = perfil.codigoPais +" "+ telefonoRaw.slice(4);
             }
+
+            // Para taxistas, leer habilitado de documentosVehiculo; para otros, usar activo
+            const esTaxista = data.modo === 'taxista';
+            const estadoActivo = esTaxista 
+              ? (documentosVehiculo.habilitado === undefined ? false : documentosVehiculo.habilitado)
+              : (data.activo === undefined ? true : data.activo);
 
             return {
               modo: data.modo || 'usuario', 
@@ -46,7 +52,7 @@ export function Usuarios({ onSelectUsuario }) {
               email: perfil.email || "Correo No Disponible",
               telefono: telefono || "N/A", 
               fecha: perfil.ultimologin ? new Date(perfil.ultimologin).toLocaleString() : "N/A", 
-              activo: data.activo === undefined ? true : data.activo,
+              activo: estadoActivo,
               photoUrl: perfil.photoUrl || (perfil.name ? perfil.name.charAt(0).toUpperCase() : '👤'),
               color: data.color || '#4caf50',
             };
@@ -85,11 +91,8 @@ export function Usuarios({ onSelectUsuario }) {
     const matchesSearch = usuario.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
                           usuario.email.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesMode = modoFilter === 'todos' || usuario.modo === modoFilter;
-    const matchesEstado = estadoFilter === 'todos' || 
-                          (estadoFilter === 'activo' && usuario.activo) ||
-                          (estadoFilter === 'inactivo' && !usuario.activo);
 
-    return matchesSearch && matchesMode && matchesEstado;
+    return matchesSearch && matchesMode;
   });
 
   const toggleSelectAll = () => {
@@ -197,17 +200,6 @@ export function Usuarios({ onSelectUsuario }) {
               <option value="todos">Todos los Modos</option>
               <option value="pasajero">Pasajero</option>
               <option value="taxista">Taxista</option>
-              <option value="usuario">Otro/Usuario</option>
-            </select>
-
-            <select 
-              value={estadoFilter}
-              onChange={(e) => setEstadoFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg"
-            >
-              <option value="todos">Estado</option>
-              <option value="activo">Activo</option>
-              <option value="inactivo">Inactivo</option>
             </select>
           </div>
           <div className="flex items-center gap-2">

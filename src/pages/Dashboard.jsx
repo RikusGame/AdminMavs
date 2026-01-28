@@ -312,14 +312,6 @@ export function Dashboard() {
             {showUserMenu && (
               <div className="absolute right-0 mt-2 w-48 bg-white rounded-md shadow-lg border z-50">
                 <div className="py-1">
-                  <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    <Settings className="w-4 h-4" />
-                    Ajustes
-                  </button>
-                  <button className="flex items-center gap-2 w-full px-4 py-2 text-sm text-gray-700 hover:bg-gray-100">
-                    <User className="w-4 h-4" />
-                    Administrar cuenta
-                  </button>
                   <button 
                     onClick={handleLogout}
                     className="flex items-center gap-2 w-full px-4 py-2 text-sm text-red-600 hover:bg-gray-100"

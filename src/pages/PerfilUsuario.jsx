@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db } from "../config/firebase";
-import { doc, getDoc } from "firebase/firestore";
+import { doc, getDoc, collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { ArrowLeft, Mail, Phone, MapPin } from 'lucide-react';
 
 export function PerfilUsuario({ usuarioId, onBack }) {
@@ -17,19 +17,77 @@ export function PerfilUsuario({ usuarioId, onBack }) {
           const data = usuarioSnapshot.data();
           const perfil = data.perfil || {};
           
+          // Rescatar teléfono correctamente
+          let telefonoRaw = perfil.telefono || data.telefono || "N/A";
+          let telefono = telefonoRaw;
+          if (telefonoRaw !== "N/A" && perfil.codigoPais && telefonoRaw.startsWith(perfil.codigoPais)) {
+            telefono = perfil.codigoPais + " " + telefonoRaw.slice(perfil.codigoPais.length);
+          }
+
+          // Buscar el último viaje del usuario en ordenesPasajeros/{id}/ordenes
+          let ultimaUbicacion = "No disponible";
+          let totalViajes = 0;
+          
+          try {
+            console.log('🔍 Buscando viajes para usuario:', usuarioId);
+            
+            // Consultar TODAS las órdenes para contar el total
+            const ordenesRef = collection(db, "ordenesPasajeros", usuarioId, "ordenes");
+            const todasLasOrdenesSnapshot = await getDocs(ordenesRef);
+            
+            totalViajes = todasLasOrdenesSnapshot.size;
+            console.log('📊 Total de viajes:', totalViajes);
+            
+            // Ahora obtener el último viaje
+            if (totalViajes > 0) {
+              const ordenesQuery = query(
+                ordenesRef,
+                orderBy('createdAt', 'desc'),
+                limit(1)
+              );
+              
+              const ordenesSnapshot = await getDocs(ordenesQuery);
+              
+              if (!ordenesSnapshot.empty) {
+                const ultimoViaje = ordenesSnapshot.docs[0].data();
+                console.log('🎯 Último viaje completo:', ultimoViaje);
+                console.log('📍 Destino objeto:', ultimoViaje.destino);
+                
+                // Obtener dirección de destino del objeto destino
+                if (ultimoViaje.destino) {
+                  ultimaUbicacion = ultimoViaje.destino.texto || 
+                                   ultimoViaje.destino.calle || 
+                                   ultimoViaje.destino.address ||
+                                   `${ultimoViaje.destino.calle || ''}, ${ultimoViaje.destino.ciudad || ''}`.trim() ||
+                                   "Ubicación no disponible";
+                } else {
+                  ultimaUbicacion = ultimoViaje.direccionDestino || 
+                                   ultimoViaje.destinoAddress ||
+                                   "Ubicación no disponible";
+                }
+                
+                console.log('📍 Ubicación extraída:', ultimaUbicacion);
+              }
+            } else {
+              console.log('⚠️ No se encontraron viajes para este usuario');
+            }
+          } catch (error) {
+            console.error('❌ Error al obtener los viajes:', error);
+          }
+          
           setUsuario({
             id: usuarioSnapshot.id,
             nombre: perfil.name || "Nombre No Disponible",
             email: perfil.email || "Correo No Disponible",
-            telefono: data.telefono || "N/A",
+            telefono: telefono,
             fecha: perfil.ultimologin ? new Date(perfil.ultimologin).toLocaleString() : "N/A",
             activo: data.activo === undefined ? true : data.activo,
-            viajes: data.viajes || 0,
+            viajes: totalViajes,
             photoUrl: perfil.photoUrl || null,
             color: data.color || '#4caf50',
             modo: data.modo || 'usuario',
             direccion: perfil.direccion || "No disponible",
-            ciudad: perfil.ciudad || "No disponible",
+            ciudad: ultimaUbicacion,
           });
         }
         setLoading(false);
@@ -118,7 +176,7 @@ export function PerfilUsuario({ usuarioId, onBack }) {
                 </span>
               </div>
             </div>
-          </div>
+          </div>Última Ubicación de Destino
 
           {/* Información de Contacto */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">

@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../config/firebase';
-import { collection, query, onSnapshot, doc, updateDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
 import { FileText, CheckCircle, XCircle, Search, Eye, Loader2, Users, Truck } from 'lucide-react';
 import { cargarConfiguracion } from '../components/DocumentConfigManager';
+import EnableAlert from '../components/EnableAlert';
 
 // NOTA: Este mapa estático se mantiene como fallback si falla la carga de configuración
 const DOCUMENT_MAP_FALLBACK = {
@@ -71,6 +72,24 @@ const Documentos = () => {
   const [pauseListener, setPauseListener] = useState(false);
   const [documentMap, setDocumentMap] = useState(DOCUMENT_MAP_FALLBACK);
   const [filterApproval, setFilterApproval] = useState('Todos');
+  const [isEnableModalOpen, setIsEnableModalOpen] = useState(false);
+  const [driverToEnable, setDriverToEnable] = useState(null);
+  const [isEnabling, setIsEnabling] = useState(false);
+  const [isEnableAllModalOpen, setIsEnableAllModalOpen] = useState(false);
+  const [isEnablingAll, setIsEnablingAll] = useState(false);
+  const scrollPositionRef = useRef(null);
+
+  // Restore scroll position after React renders
+  useEffect(() => {
+    if (scrollPositionRef.current !== null) {
+      console.log('🔄 [SCROLL] Restaurando scroll a:', scrollPositionRef.current);
+      requestAnimationFrame(() => {
+        window.scrollTo(0, scrollPositionRef.current);
+        console.log('✅ [SCROLL] Scroll restaurado. Posición actual:', window.scrollY);
+        scrollPositionRef.current = null;
+      });
+    }
+  });
 
   // Cargar configuración de documentos al montar el componente
   useEffect(() => {
@@ -106,12 +125,22 @@ const Documentos = () => {
     loadConfig();
   }, []);
 
-  const toggleDocumentVerification = async (driverId, docKey, currentState) => {
+  const toggleDocumentVerification = async (driverId, docKey, currentState, savedScrollPosition) => {
     const updateKey = `${driverId}-${docKey}`;
-    if (updating.has(updateKey)) return;
+    console.log('🔵 [TOGGLE DOC] Iniciando:', { driverId, docKey, currentState, savedScrollPosition });
+    
+    if (updating.has(updateKey)) {
+      console.log('⏸️ [TOGGLE DOC] Ya está actualizando, ignorando');
+      return;
+    }
+    
+    // Use the scroll position captured BEFORE the event
+    scrollPositionRef.current = savedScrollPosition;
+    console.log('💾 [SCROLL] Guardado en:', scrollPositionRef.current);
     
     setUpdating(prev => new Set(prev).add(updateKey));
     setPauseListener(true);
+    console.log('⏸️ [LISTENER] PAUSADO');
     
     const newDocState = !currentState;
     
@@ -123,7 +152,6 @@ const Documentos = () => {
         newSet.delete(updateKey);
         return newSet;
       });
-      setPauseListener(false);
       return;
     }
     
@@ -155,6 +183,7 @@ const Documentos = () => {
           }
         : driver
     ));
+    console.log('✅ [STATE] Actualizado optimísticamente');
     
     try {
       // Capitalize first letter: fotoConductor -> FotoConductor
@@ -165,7 +194,9 @@ const Documentos = () => {
         'documentosVehiculo.habilitado': newHabilitadoState
       };
       
+      console.log('📤 [FIREBASE] Enviando...');
       await updateDoc(doc(db, 'taxistas', driverId), updates);
+      console.log('✅ [FIREBASE] Completado');
     } catch (error) {
       console.error('Error al actualizar verificación:', error);
       // Revertir en caso de error
@@ -180,21 +211,60 @@ const Documentos = () => {
           : driver
       ));
     } finally {
-      setUpdating(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(updateKey);
-        return newSet;
-      });
-      setTimeout(() => setPauseListener(false), 500);
+      console.log('⏱️ [TIMEOUT] Esperando 100ms...');
+      setTimeout(() => {
+        setUpdating(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(updateKey);
+          return newSet;
+        });
+        setPauseListener(false);
+        console.log('▶️ [LISTENER] REACTIVADO');
+        console.log('📍 [SCROLL] Posición:', window.scrollY);
+      }, 100);
     }
   };
 
-  const toggleDriverEnabled = async (driverId, currentState) => {
+  const toggleDriverEnabled = (driverId, currentState, savedScrollPosition) => {
+    // Guardar scroll si fue capturado
+    if (savedScrollPosition !== undefined) {
+      scrollPositionRef.current = savedScrollPosition;
+      console.log('💾 [SCROLL] Guardado desde onClick:', scrollPositionRef.current);
+    }
+    
+    // Si deshabilita, no pedir confirmación
+    if (currentState === true) {
+      executeToggleDriver(driverId, currentState);
+      return;
+    }
+    
+    // Si habilita, mostrar confirmación
+    const driver = drivers.find(d => d.uid === driverId);
+    if (!driver) return;
+    
+    setDriverToEnable({ id: driverId, nombre: driver.nombre, currentState });
+    setIsEnableModalOpen(true);
+  };
+
+  const executeToggleDriver = async (driverId, currentState) => {
     const updateKey = `${driverId}-enabled`;
-    if (updating.has(updateKey)) return;
+    console.log('🟢 [TOGGLE DRIVER]:', { driverId, currentState, scroll: scrollPositionRef.current });
+    
+    if (updating.has(updateKey)) {
+      console.log('⏸️ [TOGGLE DRIVER] Ya actualizando');
+      return;
+    }
+    
+    // Scroll position should already be in scrollPositionRef from toggleDriverEnabled
+    if (scrollPositionRef.current === null) {
+      scrollPositionRef.current = window.scrollY;
+      console.log('💾 [SCROLL] Guardado tardío:', scrollPositionRef.current);
+    }
     
     setUpdating(prev => new Set(prev).add(updateKey));
     setPauseListener(true);
+    console.log('⏸️ [LISTENER] PAUSADO');
+    setIsEnabling(true);
     
     const newEnabledState = !currentState;
     
@@ -226,7 +296,9 @@ const Documentos = () => {
         updates[`documentosVehiculo.${verificadoKey}`] = newEnabledState;
       });
       
+      console.log('📤 [FIREBASE] Enviando...');
       await updateDoc(doc(db, 'taxistas', driverId), updates);
+      console.log('✅ [FIREBASE] Completado');
     } catch (error) {
       console.error('Error al actualizar habilitación:', error);
       // Revertir en caso de error
@@ -243,13 +315,87 @@ const Documentos = () => {
           : driver
       ));
     } finally {
-      setUpdating(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(updateKey);
-        return newSet;
-      });
-      setTimeout(() => setPauseListener(false), 500);
+      console.log('⏱️ [TIMEOUT] Esperando 100ms...');
+      setTimeout(() => {
+        setUpdating(prev => {
+          const newSet = new Set(prev);
+          newSet.delete(updateKey);
+          return newSet;
+        });
+        setPauseListener(false);
+        console.log('▶️ [LISTENER] REACTIVADO');
+        setIsEnabling(false);
+        console.log('📍 [SCROLL] Posición:', window.scrollY);
+      }, 100);
     }
+  };
+
+  const handleConfirmEnable = () => {
+    executeToggleDriver(driverToEnable.id, driverToEnable.currentState);
+    setIsEnableModalOpen(false);
+    setDriverToEnable(null);
+  };
+
+  const closeEnableModal = () => {
+    setIsEnableModalOpen(false);
+    setDriverToEnable(null);
+  };
+
+  const habilitarTodos = async () => {
+    setIsEnablingAll(true);
+    setPauseListener(true);
+    
+    try {
+      const configDoc = await getDoc(doc(db, 'configuracion', 'documentos'));
+      const loadedDocumentMap = configDoc.exists() 
+        ? configDoc.data().documentMap 
+        : documentMap;
+
+      const documentFields = Object.keys(loadedDocumentMap);
+      
+      // Filtrar solo conductores NO habilitados
+      const disabledDrivers = drivers.filter(driver => !driver.habilitado);
+
+      const updates = disabledDrivers.map(driver => {
+        const updateData = {
+          "documentosVehiculo.habilitado": true,
+          "estado": "Aprobado"
+        };
+        
+        // Marcar TODOS los documentos como verificados
+        documentFields.forEach(field => {
+          const capitalizedKey = field.charAt(0).toUpperCase() + field.slice(1);
+          const verificadoKey = `verificado${capitalizedKey}`;
+          updateData[`documentosVehiculo.${verificadoKey}`] = true;
+        });
+
+        return updateDoc(doc(db, "taxistas", driver.uid), updateData);
+      });
+
+      await Promise.all(updates);
+      console.log('✅ Todos los conductores habilitados y documentos verificados');
+    } catch (error) {
+      console.error("Error al habilitar todos los conductores:", error);
+    } finally {
+      setTimeout(() => {
+        setIsEnablingAll(false);
+        setIsEnableAllModalOpen(false);
+        setPauseListener(false);
+      }, 100);
+    }
+  };
+
+  const handleEnableAllClick = () => {
+    const disabledCount = drivers.filter(driver => !driver.habilitado).length;
+    if (disabledCount === 0) {
+      alert('Todos los conductores ya están habilitados');
+      return;
+    }
+    setIsEnableAllModalOpen(true);
+  };
+
+  const handleConfirmEnableAll = () => {
+    habilitarTodos();
   };
 
   useEffect(() => {
@@ -257,8 +403,14 @@ const Documentos = () => {
     const q = query(driversCollectionRef);
     
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      if (pauseListener) return;
+      console.log('🔔 [SNAPSHOT] Disparado. pauseListener:', pauseListener, 'Scroll:', window.scrollY);
+      
+      if (pauseListener) {
+        console.log('🚫 [SNAPSHOT] IGNORADO - listener pausado');
+        return;
+      }
 
+      console.log('✅ [SNAPSHOT] Procesando. Docs:', snapshot.size);
       const driversList = [];
       snapshot.forEach((doc) => {
         const data = doc.data() || {};
@@ -287,7 +439,10 @@ const Documentos = () => {
         return dateB - dateA;
       });
 
+      console.log('📊 [SNAPSHOT] Lista ordenada:', driversList.length);
+      console.log('📍 [SCROLL] Antes de setDrivers:', window.scrollY);
       setDrivers(driversList);
+      console.log('📍 [SCROLL] Después de setDrivers:', window.scrollY);
       setLoading(false);
     }, (error) => {
         console.error("Error al cargar documentos:", error);
@@ -400,11 +555,24 @@ const Documentos = () => {
             <Eye className="w-4 h-4" /> Ver
           </button>
           
-          <label className="relative inline-flex items-center cursor-pointer">
+          <label 
+            className="relative inline-flex items-center cursor-pointer"
+            onClick={(e) => {
+              // Capture scroll BEFORE any other processing
+              const currentScroll = window.scrollY;
+              console.log('🎯 [CLICK] Scroll capturado en onClick:', currentScroll);
+              // Prevent default to stop any auto-scroll behavior
+              e.preventDefault();
+              toggleDocumentVerification(driverId, doc.id, doc.isVerified, currentScroll);
+            }}
+          >
             <input
               type="checkbox"
               checked={doc.isVerified}
-              onChange={() => toggleDocumentVerification(driverId, doc.id, doc.isVerified)}
+              onChange={(e) => {
+                // Prevent onChange from firing since we handle it in onClick
+                e.preventDefault();
+              }}
               className="sr-only peer"
             />
             <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#a8d96f]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#a8d96f]"></div>
@@ -434,11 +602,20 @@ const Documentos = () => {
             }`}>
               {driver.habilitado ? 'Habilitado' : 'Deshabilitado'}
             </span>
-            <label className="relative inline-flex items-center cursor-pointer">
+            <label 
+              className="relative inline-flex items-center cursor-pointer"
+              onClick={(e) => {
+                // Capture scroll BEFORE any other processing
+                const currentScroll = window.scrollY;
+                console.log('🎯 [CLICK DRIVER] Scroll capturado:', currentScroll);
+                e.preventDefault();
+                toggleDriverEnabled(driver.uid, driver.habilitado, currentScroll);
+              }}
+            >
               <input
                 type="checkbox"
                 checked={driver.habilitado}
-                onChange={() => toggleDriverEnabled(driver.uid, driver.habilitado)}
+                onChange={(e) => e.preventDefault()}
                 className="sr-only peer"
               />
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#a8d96f]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#a8d96f]"></div>
@@ -549,6 +726,18 @@ const Documentos = () => {
         </p>
 
         <div className="flex flex-col md:flex-row gap-4">
+          <button
+            onClick={handleEnableAllClick}
+            className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
+          >
+            <span>Habilitar a Todos</span>
+            {drivers.filter(d => !d.habilitado).length > 0 && (
+              <span className="bg-white text-green-600 px-2 py-0.5 rounded-full text-xs font-bold">
+                {drivers.filter(d => !d.habilitado).length}
+              </span>
+            )}
+          </button>
+          
           <div className="relative flex-1">
             <input
               type="text"
@@ -617,6 +806,26 @@ const Documentos = () => {
         title={modalTitle} 
         onClose={() => setModalUrl(null)} 
       />
+
+      {isEnableModalOpen && driverToEnable && (
+        <EnableAlert
+          isOpen={isEnableModalOpen}
+          onClose={closeEnableModal}
+          onConfirm={handleConfirmEnable}
+          driverName={driverToEnable.nombre}
+          isEnabling={isEnabling}
+        />
+      )}
+
+      {isEnableAllModalOpen && (
+        <EnableAlert
+          isOpen={isEnableAllModalOpen}
+          onClose={() => setIsEnableAllModalOpen(false)}
+          onConfirm={habilitarTodos}
+          driverName={`${drivers.filter(d => !d.habilitado).length} conductor${drivers.filter(d => !d.habilitado).length !== 1 ? 'es' : ''}`}
+          isEnabling={isEnablingAll}
+        />
+      )}
 
     </div>
   );

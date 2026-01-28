@@ -1,6 +1,6 @@
 import React from 'react';
 
-const DeleteAlert = ({ isOpen, onClose, onConfirm, itemName, itemType, isDeleting }) => {
+const EnableAlert = ({ isOpen, onClose, onConfirm, driverName, isEnabling }) => {
     if (!isOpen) return null;
 
     return (
@@ -21,11 +21,11 @@ const DeleteAlert = ({ isOpen, onClose, onConfirm, itemName, itemType, isDeletin
                 style={{ animation: 'modal-pop-in 0.3s ease-out forwards' }}
             >
                 <div className="flex justify-between items-center p-5 border-b border-gray-100">
-                    <h2 className="text-xl font-extrabold text-red-600">Confirmar Eliminación</h2>
+                    <h2 className="text-xl font-extrabold text-green-600">Confirmar Habilitación</h2>
                     <button 
                         onClick={onClose} 
                         className="p-2 rounded-full text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition duration-150"
-                        disabled={isDeleting}
+                        disabled={isEnabling}
                     >
                         <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -34,15 +34,15 @@ const DeleteAlert = ({ isOpen, onClose, onConfirm, itemName, itemType, isDeletin
                 </div>
                 <div className="p-6">
                     <div className="flex items-center mb-4">
-                        <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mr-4">
-                            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                        <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mr-4">
+                            <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                         </div>
                         <div>
-                            <h3 className="text-lg font-semibold text-gray-900">¿Estás seguro?</h3>
+                            <h3 className="text-lg font-semibold text-gray-900">¿Está seguro?</h3>
                             <p className="text-sm text-gray-600 mt-1">
-                                Esta acción eliminará permanentemente {itemType} <strong>{itemName}</strong> y no se puede deshacer.
+                                Esta acción habilitará al conductor <strong>{driverName}</strong> y marcará <strong>todos sus documentos como verificados</strong>.
                             </p>
                         </div>
                     </div>
@@ -52,16 +52,16 @@ const DeleteAlert = ({ isOpen, onClose, onConfirm, itemName, itemType, isDeletin
                             type="button" 
                             onClick={onClose} 
                             className="px-4 py-2 bg-gray-200 text-gray-700 font-medium rounded-lg hover:bg-gray-300 transition duration-150" 
-                            disabled={isDeleting}
+                            disabled={isEnabling}
                         >
                             Cancelar
                         </button>
                         <button 
                             onClick={onConfirm} 
-                            className="px-6 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition duration-150 shadow-md disabled:opacity-50" 
-                            disabled={isDeleting}
+                            className="px-6 py-2 bg-green-600 text-white font-medium rounded-lg hover:bg-green-700 transition duration-150 shadow-md disabled:opacity-50" 
+                            disabled={isEnabling}
                         >
-                            {isDeleting ? 'Eliminando...' : `Eliminar ${itemType}`}
+                            {isEnabling ? 'Habilitando...' : 'Habilitar Conductor'}
                         </button>
                     </div>
                 </div>
@@ -70,4 +70,4 @@ const DeleteAlert = ({ isOpen, onClose, onConfirm, itemName, itemType, isDeletin
     );
 };
 
-export default DeleteAlert;
+export default EnableAlert;

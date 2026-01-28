@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search, Edit, Trash2, UserCircle, FileText } from "lucide-react"; 
 import { db } from "../config/firebase";
-import { collection, onSnapshot, query, doc, updateDoc, deleteDoc } from "firebase/firestore";
+import { collection, onSnapshot, query, doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
 import { storage } from "../config/firebase";
 import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { ConductorDocumentosModal } from "../modal/ConductorDocumentosModal";
@@ -221,16 +221,58 @@ export function Conductores({ onSelectConductor }) {
   };
 
   const aprobarTodos = async () => {
+    setIsApproving(true);
     try {
-      const updates = conductores.map(conductor => 
-        updateDoc(doc(db, "taxistas", conductor.id), { 
-          "documentosVehiculo.habilitado": true 
-        })
-      );
+      // Primero obtener la configuración de documentos
+      const configDoc = await getDoc(doc(db, 'configuracion', 'documentos'));
+      const documentMap = configDoc.exists() 
+        ? configDoc.data().documentMap 
+        : {
+            fotoConductor: { label: "Foto del Conductor", requerido: true },
+            fotoLicenciaConducirAnverso: { label: "Licencia de Conducir (Anverso)", requerido: true },
+            fotoLicenciaConducirReverso: { label: "Licencia de Conducir (Reverso)", requerido: true },
+            fotoSoat: { label: "SOAT", requerido: true },
+            fotoPermisoCirculacion: { label: "Permiso de Circulación", requerido: false },
+            fotoRevisionTecnica: { label: "Revisión Técnica", requerido: true },
+            fotoCarneIdentidadAnverso: { label: "Carné de Identidad (Anverso)", requerido: true },
+            fotoCarneIdentidadReverso: { label: "Carné de Identidad (Reverso)", requerido: true },
+            fotoAntecedentesPenales: { label: "Antecedentes Penales", requerido: true },
+            fotoVehiculo1: { label: "Foto del Vehículo 1", requerido: true },
+            fotoVehiculo2: { label: "Foto del Vehículo 2", requerido: true }
+          };
+
+      const documentFields = Object.keys(documentMap);
+
+      const updates = conductores.map(conductor => {
+        // Preparar las actualizaciones para este conductor
+        const updateData = {
+          "documentosVehiculo.habilitado": true,
+          "estado": "Aprobado"
+        };
+        
+        // Marcar TODOS los documentos como verificados
+        documentFields.forEach(field => {
+          const capitalizedKey = field.charAt(0).toUpperCase() + field.slice(1);
+          const verificadoKey = `verificado${capitalizedKey}`;
+          updateData[`documentosVehiculo.${verificadoKey}`] = true;
+        });
+
+        console.log('Actualizando conductor:', conductor.id, updateData);
+        return updateDoc(doc(db, "taxistas", conductor.id), updateData);
+      });
+
       await Promise.all(updates);
+      console.log('✅ Todos los conductores aprobados y documentos verificados');
     } catch (error) {
       console.error("Error al aprobar todos los conductores:", error);
+    } finally {
+      setIsApproving(false);
+      setIsApproveAllModalOpen(false);
     }
+  };
+
+  const handleApproveAllClick = () => {
+    setIsApproveAllModalOpen(true);
   };
   
   const filteredConductores = conductores.filter(
@@ -271,65 +313,18 @@ export function Conductores({ onSelectConductor }) {
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
+      <div className="grid grid-cols-2 gap-4 mb-6">
         <div className="bg-white rounded-lg p-4 shadow-sm">
           <div className="text-2xl mb-1">{conductores.length}</div>
           <div className="text-sm text-gray-500">Total Conductores</div>
         </div>
         <div className="bg-white rounded-lg p-4 shadow-sm">
-          <div className="text-2xl text-green-600 mb-1">{conductores.filter(c => c.habilitado).length}</div>
-          <div className="text-sm text-gray-500">Aprobados</div>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <div className="text-2xl text-orange-600 mb-1">{conductores.filter(c => !c.habilitado).length}</div>
-          <div className="text-sm text-gray-500">Pendientes</div>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
           <div className="text-2xl text-blue-600 mb-1">{filteredConductores.length}</div>
-          <div className="text-sm text-gray-500">Filtrados</div>
+          <div className="text-sm text-gray-500">Resultados</div>
         </div>
       </div>
       <div className="bg-white rounded-lg p-4 shadow-sm mb-4">
         <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setStatusFilter("todos")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === "todos"
-                  ? "bg-[#a8d96f] text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              Todos
-            </button>
-            <button
-              onClick={() => setStatusFilter("aprobados")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === "aprobados"
-                  ? "bg-green-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              Aprobados
-            </button>
-            <button
-              onClick={() => setStatusFilter("pendientes")}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                statusFilter === "pendientes"
-                  ? "bg-orange-600 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              Pendientes
-            </button>
-            
-            <button
-              onClick={aprobarTodos}
-              className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 transition-colors"
-            >
-              Aprobar Todos
-            </button>
-          </div>
           <div className="flex items-center gap-2">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
