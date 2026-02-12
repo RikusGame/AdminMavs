@@ -31,14 +31,14 @@ export function Login({ onLoginSuccess }) {
   };
 
   return (
-    <section className="relative h-screen overflow-hidden bg-gradient-to-br from-gray-50 to-green-50">
+    <section className="relative min-h-screen overflow-auto bg-gradient-to-br from-gray-50 to-green-50">
       {/* Animated gradient blobs */}
       <div className="absolute top-0 -left-4 w-72 h-72 bg-green-300 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob"></div>
       <div className="absolute top-0 -right-4 w-72 h-72 bg-green-400 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-2000"></div>
       <div className="absolute -bottom-8 left-20 w-72 h-72 bg-green-500 rounded-full mix-blend-multiply filter blur-xl opacity-70 animate-blob animation-delay-4000"></div>
 
       <div className="relative container h-full px-6 py-24">
-        <div className="flex h-full flex-wrap items-center justify-center lg:justify-between">
+        <div className="flex h-full flex-wrap items-start md:items-center justify-center lg:justify-between">
           <div className="mb-12 md:mb-0 md:w-8/12 lg:w-6/12 flex justify-center">
             <img
               src="/images/mav.png"

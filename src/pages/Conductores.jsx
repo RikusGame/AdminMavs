@@ -119,8 +119,8 @@ export function Conductores({ onSelectConductor }) {
               if (!conductor) return false; // Filtrar nulls (no taxistas)
               const tieneNombre = conductor.nombre && conductor.nombre !== "N/A" && conductor.nombre.trim() !== "";
               const tieneCorreo = conductor.email && conductor.email !== "N/A" && conductor.email !== "Correo No Disponible" && conductor.email.trim() !== "";
-              const tieneDocumentos = conductor.tieneDocumentos; // Solo mostrar si tiene documentos
-              return tieneNombre && tieneCorreo && tieneDocumentos;
+              // Removido el filtro de tieneDocumentos para mostrar todos los conductores registrados
+              return tieneNombre && tieneCorreo;
             })
             .sort((a, b) => {
               // Ordenar por fecha de registro descendente (más recientes arriba)

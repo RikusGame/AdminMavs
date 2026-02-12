@@ -690,38 +690,40 @@ export default function GestionDocumentos() {
   }
   
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-blue-50 p-3 md:p-6">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center justify-between mb-6">
+      <div className="mb-6 md:mb-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-2">
+            <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-2">
               Gestión de Documentos
             </h1>
-            <p className="text-gray-600 text-lg">Configure los documentos requeridos para el registro de conductores</p>
+            <p className="text-gray-600 text-sm md:text-lg">Configure los documentos requeridos para el registro de conductores</p>
           </div>
           
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-2 md:gap-3">
             {/* Crear Nuevo */}
             <button
               onClick={handleCrearDocumento}
-              className="px-5 py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105"
+              className="px-4 md:px-5 py-2 md:py-2.5 bg-gradient-to-r from-emerald-600 to-green-600 text-white rounded-xl hover:from-emerald-700 hover:to-green-700 transition-all font-semibold flex items-center gap-2 shadow-lg hover:shadow-xl hover:scale-105 text-sm md:text-base"
             >
-              <Plus className="w-5 h-5" />
-              Nuevo Documento
+              <Plus className="w-4 h-4 md:w-5 md:h-5" />
+              <span className="hidden sm:inline">Nuevo Documento</span>
+              <span className="sm:hidden">Nuevo</span>
             </button>
             
             {/* Toggle Mostrar Eliminados */}
             <button
               onClick={() => setMostrarEliminados(!mostrarEliminados)}
-              className={`px-4 py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 ${
+              className={`px-3 md:px-4 py-2 md:py-2.5 rounded-xl font-semibold transition-all flex items-center gap-2 text-sm md:text-base ${
                 mostrarEliminados
                   ? 'bg-gradient-to-r from-gray-700 to-gray-800 text-white shadow-lg'
                   : 'bg-white border-2 border-gray-300 text-gray-700 hover:border-gray-400 shadow-sm'
               }`}
             >
               {mostrarEliminados ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
-              {mostrarEliminados ? 'Ocultar' : 'Ver'} Inactivos
+              <span className="hidden sm:inline">{mostrarEliminados ? 'Ocultar' : 'Ver'} Inactivos</span>
+              <span className="sm:hidden">{mostrarEliminados ? 'Ocultar' : 'Ver'}</span>
             </button>
             
             {/* Exportar */}
@@ -749,7 +751,7 @@ export default function GestionDocumentos() {
         </div>
         
         {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6">
           {CATEGORIAS.map(cat => {
             const docsCategoria = documentos.filter(d => d.paso === cat.paso && d.activo);
             const docsRequeridos = docsCategoria.filter(d => d.requerido).length;
@@ -763,14 +765,14 @@ export default function GestionDocumentos() {
             return (
               <div 
                 key={cat.id} 
-                className={`bg-gradient-to-br ${colorClasses[cat.color]} text-white rounded-2xl p-6 shadow-xl transform hover:scale-105 transition-all`}
+                className={`bg-gradient-to-br ${colorClasses[cat.color]} text-white rounded-2xl p-4 md:p-6 shadow-xl transform hover:scale-105 transition-all`}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-4xl">{cat.icon}</span>
-                  <span className="text-5xl font-bold opacity-90">{docsCategoria.length}</span>
+                <div className="flex items-center justify-between mb-2 md:mb-3">
+                  <span className="text-3xl md:text-4xl">{cat.icon}</span>
+                  <span className="text-4xl md:text-5xl font-bold opacity-90">{docsCategoria.length}</span>
                 </div>
-                <h3 className="text-lg font-semibold mb-1">{cat.nombre}</h3>
-                <p className="text-sm opacity-90">
+                <h3 className="text-base md:text-lg font-semibold mb-1">{cat.nombre}</h3>
+                <p className="text-xs md:text-sm opacity-90">
                   {docsRequeridos} obligatorio{docsRequeridos !== 1 ? 's' : ''} • Paso {cat.paso}
                 </p>
               </div>
@@ -780,7 +782,7 @@ export default function GestionDocumentos() {
       </div>
       
       {/* Drag and Drop Grid */}
-      <div className="grid grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
         {CATEGORIAS.map(categoria => {
           const docsCategoria = getDocumentosPorPaso(categoria.paso);
           
@@ -802,12 +804,12 @@ export default function GestionDocumentos() {
           return (
             <div key={categoria.id} className="flex flex-col shadow-xl rounded-2xl overflow-hidden">
               {/* Header del paso */}
-              <div className={`bg-gradient-to-r ${colorClasses[categoria.color].header} text-white p-5 flex items-center justify-between`}>
-                <div className="flex items-center gap-3">
-                  <span className="text-3xl">{categoria.icon}</span>
+              <div className={`bg-gradient-to-r ${colorClasses[categoria.color].header} text-white p-4 md:p-5 flex items-center justify-between`}>
+                <div className="flex items-center gap-2 md:gap-3">
+                  <span className="text-2xl md:text-3xl">{categoria.icon}</span>
                   <div>
-                    <h3 className="font-bold text-lg">Paso {categoria.paso}</h3>
-                    <p className="text-sm opacity-95">{categoria.nombre}</p>
+                    <h3 className="font-bold text-base md:text-lg">Paso {categoria.paso}</h3>
+                    <p className="text-xs md:text-sm opacity-95">{categoria.nombre}</p>
                   </div>
                 </div>
                 <button

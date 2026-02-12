@@ -327,12 +327,12 @@ export function Dashboard() {
       </div>
 
       {/* Tarjetas de Estadísticas Principales */}
-      <div className="grid grid-cols-4 gap-6 mb-6">
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-6 shadow-lg text-white">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
+        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-4 md:p-6 shadow-lg text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-green-100 text-sm font-medium">Completados</p>
-              <h3 className="text-3xl font-bold mt-2">{cargando ? '...' : estadisticasViajes.completados}</h3>
+              <p className="text-green-100 text-xs md:text-sm font-medium">Completados</p>
+              <h3 className="text-2xl md:text-3xl font-bold mt-2">{cargando ? '...' : estadisticasViajes.completados}</h3>
             </div>
             <div className="bg-white/20 p-3 rounded-full">
               <TrendingUp className="w-8 h-8" />
@@ -340,11 +340,11 @@ export function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg p-6 shadow-lg text-white">
+        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg p-4 md:p-6 shadow-lg text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-red-100 text-sm font-medium">Cancelados</p>
-              <h3 className="text-3xl font-bold mt-2">{cargando ? '...' : estadisticasViajes.cancelados}</h3>
+              <p className="text-red-100 text-xs md:text-sm font-medium">Cancelados</p>
+              <h3 className="text-2xl md:text-3xl font-bold mt-2">{cargando ? '...' : estadisticasViajes.cancelados}</h3>
             </div>
             <div className="bg-white/20 p-3 rounded-full">
               <MapPin className="w-8 h-8" />
@@ -352,11 +352,11 @@ export function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-6 shadow-lg text-white">
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-4 md:p-6 shadow-lg text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-purple-100 text-sm font-medium">Comisiones Total</p>
-              <h3 className="text-3xl font-bold mt-2">
+              <p className="text-purple-100 text-xs md:text-sm font-medium">Comisiones Total</p>
+              <h3 className="text-xl md:text-3xl font-bold mt-2">
                 {cargando ? '...' : `Bs. ${comisionesTotal.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </h3>
             </div>
@@ -366,11 +366,11 @@ export function Dashboard() {
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-lg p-6 shadow-lg text-white">
+        <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-lg p-4 md:p-6 shadow-lg text-white">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-cyan-100 text-sm font-medium">Recargas Total</p>
-              <h3 className="text-3xl font-bold mt-2">
+              <p className="text-cyan-100 text-xs md:text-sm font-medium">Recargas Total</p>
+              <h3 className="text-xl md:text-3xl font-bold mt-2">
                 {cargando ? '...' : `Bs. ${recargasTotal.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
               </h3>
             </div>
@@ -382,10 +382,10 @@ export function Dashboard() {
       </div>
 
       {/* Gráficos Comparativos Mejorados */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
         {/* Gráfico Comparativo: Viajes e Ingresos por Mes */}
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-          <h3 className="mb-4 font-semibold text-gray-800">Comparativa Mensual: Viajes e Ingresos</h3>
+        <div className="bg-white rounded-xl p-4 md:p-6 shadow-lg border border-gray-100">
+          <h3 className="mb-4 text-sm md:text-base font-semibold text-gray-800">Comparativa Mensual: Viajes e Ingresos</h3>
           {cargando ? (
             <div className="flex items-center justify-center h-[280px]">
               <p className="text-gray-400">Cargando datos...</p>
@@ -473,22 +473,22 @@ export function Dashboard() {
                   />
                 </BarChart>
               </ResponsiveContainer>
-              <div className="mt-3 grid grid-cols-3 gap-3 text-center">
-                <div className="bg-blue-50 rounded-lg p-3">
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2 md:gap-3 text-center">
+                <div className="bg-blue-50 rounded-lg p-2 md:p-3">
                   <p className="text-xs text-gray-600">Total Viajes</p>
-                  <p className="text-lg font-bold text-blue-600">
+                  <p className="text-base md:text-lg font-bold text-blue-600">
                     {ingresosPorMes.reduce((sum, item) => sum + item.viajes, 0)}
                   </p>
                 </div>
-                <div className="bg-green-50 rounded-lg p-3">
+                <div className="bg-green-50 rounded-lg p-2 md:p-3">
                   <p className="text-xs text-gray-600">Promedio/Mes</p>
-                  <p className="text-lg font-bold text-green-600">
+                  <p className="text-base md:text-lg font-bold text-green-600">
                     {Math.round(ingresosPorMes.reduce((sum, item) => sum + item.viajes, 0) / ingresosPorMes.length)}
                   </p>
                 </div>
-                <div className="bg-purple-50 rounded-lg p-3">
+                <div className="bg-purple-50 rounded-lg p-2 md:p-3">
                   <p className="text-xs text-gray-600">Mejor Mes</p>
-                  <p className="text-lg font-bold text-purple-600">
+                  <p className="text-base md:text-lg font-bold text-purple-600">
                     {Math.max(...ingresosPorMes.map(item => item.viajes))}
                   </p>
                 </div>
@@ -499,17 +499,17 @@ export function Dashboard() {
       </div>
 
       {/* Gráfico de Estado de Viajes */}
-      <div className="grid grid-cols-1 gap-6">
-        <div className="bg-white rounded-xl p-6 shadow-lg border border-gray-100">
-          <h3 className="mb-4 font-semibold text-gray-800">Estado Actual de Viajes</h3>
+      <div className="grid grid-cols-1 gap-4 md:gap-6">
+        <div className="bg-white rounded-xl p-4 md:p-6 shadow-lg border border-gray-100">
+          <h3 className="mb-4 text-sm md:text-base font-semibold text-gray-800">Estado Actual de Viajes</h3>
           {cargando ? (
             <div className="flex items-center justify-center h-[200px]">
               <p className="text-gray-400">Cargando datos...</p>
             </div>
           ) : (
-            <div className="flex items-center gap-8">
+            <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8">
               <div className="flex-shrink-0">
-                <ResponsiveContainer width={300} height={200}>
+                <ResponsiveContainer width={250} height={200}>
                   <PieChart>
                     <Pie
                       data={[
@@ -530,7 +530,7 @@ export function Dashboard() {
                   </PieChart>
                 </ResponsiveContainer>
               </div>
-              <div className="flex-1 grid grid-cols-2 gap-6">
+              <div className="flex-1 grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 w-full">
                 <div className="bg-green-50 rounded-lg p-4 border-l-4 border-green-500">
                   <div className="flex items-center gap-2 mb-2">
                     <div className="w-3 h-3 rounded-full bg-[#32CD32]"></div>
@@ -562,8 +562,8 @@ export function Dashboard() {
       </div>
 
       {/* Viajes Recientes - Expandido a ancho completo */}
-      <div className="bg-white rounded-lg p-6 shadow-md">
-        <h3 className="mb-4 font-semibold text-gray-800">Viajes Recientes</h3>
+      <div className="bg-white rounded-lg p-4 md:p-6 shadow-md">
+        <h3 className="mb-4 text-sm md:text-base font-semibold text-gray-800">Viajes Recientes</h3>
           {cargando ? (
             <div className="flex items-center justify-center py-8">
               <p className="text-gray-400">Cargando viajes...</p>
@@ -573,15 +573,17 @@ export function Dashboard() {
               <p className="text-gray-400">No hay viajes recientes</p>
             </div>
           ) : (
-            <div className="space-y-1">
-              <div className="grid grid-cols-5 gap-4 pb-2 border-b text-xs text-gray-500 font-medium">
-                <div>Estado</div>
-                <div>Total</div>
-                <div>Comisión</div>
-                <div>Fecha</div>
-                <div>Ubicaciones</div>
-              </div>
-              {viajesRecientes.map((viaje) => {
+            <>
+              {/* Desktop Table View */}
+              <div className="hidden md:block space-y-1">
+                <div className="grid grid-cols-5 gap-4 pb-2 border-b text-xs text-gray-500 font-medium">
+                  <div>Estado</div>
+                  <div>Total</div>
+                  <div>Comisión</div>
+                  <div>Fecha</div>
+                  <div>Ubicaciones</div>
+                </div>
+                {viajesRecientes.map((viaje) => {
                 const estado = viaje.status || viaje.estado || 'desconocido';
                 const estadoColor = 
                   estado === 'completado' || estado === 'finalizado' ? 'text-green-600' :
@@ -647,7 +649,87 @@ export function Dashboard() {
                   </div>
                 );
               })}
-            </div>
+              </div>
+              
+              {/* Mobile Card View */}
+              <div className="md:hidden space-y-3">
+                {viajesRecientes.map((viaje) => {
+                  const estado = viaje.status || viaje.estado || 'desconocido';
+                  const estadoColor = 
+                    estado === 'completado' || estado === 'finalizado' ? 'text-green-600 bg-green-50' :
+                    estado === 'cancelado' ? 'text-red-600 bg-red-50' :
+                    'text-orange-600 bg-orange-50';
+                  
+                  const estadoTexto = 
+                    estado === 'completado' || estado === 'finalizado' ? 'Completado' :
+                    estado === 'cancelado' ? 'Cancelado' :
+                    estado === 'solicitado' ? 'Solicitado' :
+                    estado === 'buscando' ? 'Buscando' :
+                    estado === 'en_camino' ? 'En Camino' :
+                    estado.charAt(0).toUpperCase() + estado.slice(1);
+
+                  const tarifa = viaje.tarifa || {};
+                  const total = Number(tarifa.total || viaje.total || viaje.costo || viaje.precio || 0);
+                  const comision = Number(viaje.comisionReal || 0);
+                  
+                  let fecha = 'N/A';
+                  try {
+                    const fechaCampo = viaje.createdAt || viaje.fechaCreacion || viaje.fecha || viaje.timestamp;
+                    if (fechaCampo) {
+                      const fechaObj = fechaCampo.toDate ? fechaCampo.toDate() : new Date(fechaCampo);
+                      fecha = fechaObj.toLocaleDateString('es-BO', { 
+                        day: '2-digit', 
+                        month: 'short',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      });
+                    }
+                  } catch (e) {
+                    fecha = 'N/A';
+                  }
+
+                  const origen = viaje.origen || {};
+                  const destino = viaje.destino || {};
+
+                  return (
+                    <div key={viaje.id} className="border border-gray-200 rounded-lg p-3 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className={`px-2 py-1 rounded-full text-xs font-semibold ${estadoColor}`}>
+                          {estadoTexto}
+                        </span>
+                        <span className="text-xs text-gray-500">{fecha}</span>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-2 py-2 border-t border-gray-100">
+                        <div>
+                          <p className="text-xs text-gray-500">Total</p>
+                          <p className="text-sm font-bold text-gray-700">Bs. {total.toFixed(2)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Comisión</p>
+                          <p className="text-sm font-bold text-green-600">Bs. {comision.toFixed(2)}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-1 pt-2 border-t border-gray-100">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-3 h-3 mt-0.5 shrink-0 text-green-600" />
+                          <span className="text-xs text-gray-600 line-clamp-2">
+                            {origen.texto || origen.calle || origen.direccion || viaje.origenDireccion || 'Origen no disponible'}
+                          </span>
+                        </div>
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-3 h-3 mt-0.5 shrink-0 text-red-600" />
+                          <span className="text-xs text-gray-600 line-clamp-2">
+                            {destino.texto || destino.calle || destino.direccion || viaje.destinoDireccion || 'Destino no disponible'}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </>
           )}
         </div>
 

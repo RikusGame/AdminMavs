@@ -15,14 +15,19 @@ import { PerfilConductor } from "./pages/PerfilConductor";
 import { QRManager } from "./components/QRManager";
 import { EnConstruccion } from "./pages/EnConstruccion";
 import { Servicios } from "./pages/Servicios";
+import { isCurrentUserAdmin } from "./utils/adminValidator";
+import { UnauthorizedAccess } from "./pages/UnauthorizedAccess";
 
 export default function App() {
   const [activeSection, setActiveSection] = useState("dashboard");
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [checkingPermissions, setCheckingPermissions] = useState(false);
   const [selectedUsuarioId, setSelectedUsuarioId] = useState(null);
   const [selectedConductorId, setSelectedConductorId] = useState(null);
 
+  // Verificar autenticación
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
@@ -32,22 +37,45 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
+  // Verificar si el usuario es administrador
+  useEffect(() => {
+    if (user && !checkingPermissions) {
+      setCheckingPermissions(true);
+      isCurrentUserAdmin()
+        .then((result) => {
+          setIsAdmin(result);
+        })
+        .catch((error) => {
+          console.error("Error verificando permisos de admin:", error);
+          setIsAdmin(false);
+        })
+        .finally(() => {
+          setCheckingPermissions(false);
+        });
+    }
+  }, [user, checkingPermissions]);
+
   // Limpiar selecciones cuando cambia la sección activa
   useEffect(() => {
     setSelectedUsuarioId(null);
     setSelectedConductorId(null);
   }, [activeSection]);
 
-  if (loading) {
+  if (loading || checkingPermissions) {
     return (
       <div className="flex items-center justify-center h-screen">
-        <div className="text-lg">Loading...</div>
+        <div className="text-lg">Cargando...</div>
       </div>
     );
   }
 
   if (!user) {
     return <Login onLoginSuccess={() => setUser(auth.currentUser)} />;
+  }
+
+  // Si el usuario no es administrador, mostrar acceso denegado
+  if (!isAdmin) {
+    return <UnauthorizedAccess userEmail={user.email} />;
   }
 
   const renderContent = () => {
