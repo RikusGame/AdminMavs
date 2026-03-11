@@ -1,22 +1,25 @@
 import { useState, useEffect } from "react";
 import { db, storage } from "../config/firebase";
-import { 
-  collection, 
-  query, 
-  onSnapshot, 
-  doc, 
-  updateDoc, 
+import {
+  collection,
+  onSnapshot,
+  doc,
+  updateDoc,
   deleteField,
   getDoc,
-  setDoc
 } from "firebase/firestore";
-import { 
-  ref, 
-  uploadBytes, 
-  getDownloadURL,
-  deleteObject 
+import {
+  ref,
+  deleteObject,
 } from "firebase/storage";
-import { Plus, Edit2, Trash2, Image as ImageIcon, Power, PowerOff } from "lucide-react";
+import {
+  Plus,
+  Edit2,
+  Trash2,
+  Image as ImageIcon,
+  Power,
+  PowerOff,
+} from "lucide-react";
 import { CreateServicioModal } from "../modal/CreateServicioModal";
 import { EditServicioModal } from "../modal/EditServicioModal";
 import DeleteAlert from "../components/DeleteAlert";
@@ -31,28 +34,31 @@ export function Servicios() {
   const [eliminando, setEliminando] = useState(false);
   const [departamentoSeleccionado, setDepartamentoSeleccionado] = useState("La Paz");
   const [ordenDepartamentos, setOrdenDepartamentos] = useState([
-    "La Paz", "Santa Cruz", "Cochabamba", "Chuquisaca", 
+    "La Paz", "Santa Cruz", "Cochabamba", "Chuquisaca",
     "Oruro", "Potosí", "Tarija", "Pando", "Beni"
   ]);
   const [departamentoDrag, setDepartamentoDrag] = useState(null);
+
+  // ✅ Nuevo estado para drag de servicios
+  const [servicioDrag, setServicioDrag] = useState(null);
 
   // Cargar servicios en tiempo real
   useEffect(() => {
     console.log('🔍 Cargando servicios...');
     const tarifasRef = collection(db, 'empresas', 'mujeresalvolante', 'tarifas');
-    
+
     const unsubscribe = onSnapshot(
       tarifasRef,
       (snapshot) => {
         const items = [];
-        
-        snapshot.forEach((doc) => {
-          const departamento = doc.id;
-          const data = doc.data();
-          
-          // Cada key en el documento es un servicio
-          Object.keys(data).forEach((servicioKey) => {
+
+        snapshot.forEach((docSnap) => {
+          const departamento = docSnap.id;
+          const data = docSnap.data();
+
+          Object.keys(data).forEach((servicioKey, index) => {
             const servicioData = data[servicioKey];
+
             if (typeof servicioData === 'object' && servicioData !== null) {
               items.push({
                 id: `${departamento}_${servicioKey}`,
@@ -65,6 +71,10 @@ export function Servicios() {
                 tarifas: servicioData.tarifas || {},
                 tarifasAeropuerto: servicioData.Tarifas_Aeropuerto || {},
                 horasPico: servicioData.Horas_pico || {},
+                orden:
+                  servicioData.orden !== undefined && servicioData.orden !== null
+                    ? String(servicioData.orden)
+                    : String(index),
               });
             }
           });
@@ -105,7 +115,17 @@ export function Servicios() {
   }, {});
 
   // Ordenar departamentos según el orden personalizado
-  const departamentos = ordenDepartamentos.filter(dept => serviciosPorDepartamento[dept]);
+  const departamentos = ordenDepartamentos.filter((dept) => serviciosPorDepartamento[dept]);
+
+  // ✅ Obtener servicios ordenados por atributo "orden"
+  const getServiciosOrdenados = (departamento) => {
+    const lista = serviciosPorDepartamento[departamento] || [];
+    return [...lista].sort((a, b) => {
+      const ordenA = Number(a.orden ?? 999999);
+      const ordenB = Number(b.orden ?? 999999);
+      return ordenA - ordenB;
+    });
+  };
 
   // Alternar estado activo/inactivo
   const toggleActivo = async (servicio) => {
@@ -122,10 +142,9 @@ export function Servicios() {
   // Abrir modal de edición
   const handleEditar = async (servicio) => {
     try {
-      // Obtener datos completos del servicio
       const docRef = doc(db, 'empresas', 'mujeresalvolante', 'tarifas', servicio.departamento);
       const docSnap = await getDoc(docRef);
-      
+
       if (docSnap.exists()) {
         const data = docSnap.data();
         const servicioCompleto = {
@@ -145,7 +164,7 @@ export function Servicios() {
     try {
       const docRef = doc(db, 'empresas', 'mujeresalvolante', 'tarifas', nuevoServicio.departamento);
       const docSnap = await getDoc(docRef);
-      
+
       if (docSnap.exists()) {
         const data = docSnap.data();
         const servicioCompleto = {
@@ -175,9 +194,8 @@ export function Servicios() {
 
     setEliminando(true);
     try {
-      // Eliminar de todos los departamentos
       const departamentos = ["La Paz", "Santa Cruz", "Cochabamba", "Chuquisaca", "Oruro", "Potosí", "Tarija", "Pando", "Beni"];
-      
+
       for (const dept of departamentos) {
         const docRef = doc(db, 'empresas', 'mujeresalvolante', 'tarifas', dept);
         try {
@@ -189,11 +207,10 @@ export function Servicios() {
         }
       }
 
-      // Eliminar del catálogo
       try {
         const catalogoRef = doc(db, "servicios_departamentos", "servicios_departamentos");
         const catalogoSnap = await getDoc(catalogoRef);
-        
+
         if (catalogoSnap.exists()) {
           const serviciosActuales = catalogoSnap.data().Servicios || [];
           const serviciosActualizados = serviciosActuales.filter(s => s !== servicioSeleccionado.nombre);
@@ -203,7 +220,6 @@ export function Servicios() {
         console.warn('No se pudo eliminar del catálogo:', error);
       }
 
-      // Si hay logo, intentar eliminarlo de Storage
       if (servicioSeleccionado.logo) {
         try {
           const logoRef = ref(storage, servicioSeleccionado.logo);
@@ -223,7 +239,7 @@ export function Servicios() {
     }
   };
 
-  // Drag & Drop handlers
+  // Drag & Drop handlers para departamentos
   const handleDragStart = (dept) => {
     setDepartamentoDrag(dept);
   };
@@ -249,6 +265,73 @@ export function Servicios() {
 
   const handleDragEnd = () => {
     setDepartamentoDrag(null);
+  };
+
+  // ✅ Drag & Drop handlers para servicios
+  const handleServicioDragStart = (e, servicio) => {
+    e.stopPropagation();
+    setServicioDrag(servicio);
+  };
+
+  const handleServicioDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleServicioDrop = async (e, servicioDestino) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (!servicioDrag) return;
+    if (servicioDrag.id === servicioDestino.id) return;
+    if (servicioDrag.departamento !== servicioDestino.departamento) return;
+
+    const departamento = servicioDestino.departamento;
+    const listaActual = getServiciosOrdenados(departamento);
+
+    const indexOrigen = listaActual.findIndex((s) => s.id === servicioDrag.id);
+    const indexDestino = listaActual.findIndex((s) => s.id === servicioDestino.id);
+
+    if (indexOrigen === -1 || indexDestino === -1) {
+      setServicioDrag(null);
+      return;
+    }
+
+    const nuevaLista = [...listaActual];
+    const [servicioMovido] = nuevaLista.splice(indexOrigen, 1);
+    nuevaLista.splice(indexDestino, 0, servicioMovido);
+
+    // ✅ Actualización optimista local
+    setServicios((prev) =>
+      prev.map((serv) => {
+        if (serv.departamento !== departamento) return serv;
+        const nuevoIndex = nuevaLista.findIndex((item) => item.id === serv.id);
+        if (nuevoIndex === -1) return serv;
+        return { ...serv, orden: String(nuevoIndex) };
+      })
+    );
+
+    try {
+      const docRef = doc(db, 'empresas', 'mujeresalvolante', 'tarifas', departamento);
+
+      const updates = {};
+      nuevaLista.forEach((serv, index) => {
+        updates[`${serv.servicioKey}.orden`] = String(index);
+      });
+
+      await updateDoc(docRef, updates);
+      console.log(`✅ Orden de servicios actualizado en ${departamento}`);
+    } catch (error) {
+      console.error('❌ Error al actualizar orden de servicios:', error);
+      alert('Error al guardar el nuevo orden de servicios');
+    } finally {
+      setServicioDrag(null);
+    }
+  };
+
+  const handleServicioDragEnd = (e) => {
+    e.stopPropagation();
+    setServicioDrag(null);
   };
 
   // Obtener icono
@@ -310,18 +393,18 @@ export function Servicios() {
         <div className="space-y-8">
           <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
             <p className="text-sm text-blue-800">
-              💡 <strong>Tip:</strong> Arrastra los departamentos para reorganizar el orden de visualización
+              💡 <strong>Tip:</strong> Arrastra los departamentos para reorganizar el orden de visualización y arrastra los servicios dentro de cada departamento para cambiar su orden.
             </p>
           </div>
-          
+
           {departamentos.map((departamento) => (
-            <div 
-              key={departamento} 
+            <div
+              key={departamento}
               className={`bg-white rounded-lg p-6 shadow-sm cursor-move transition-all ${
-                departamentoDrag === departamento 
-                  ? 'opacity-50 scale-95' 
-                  : departamentoDrag 
-                    ? 'hover:border-2 hover:border-green-500' 
+                departamentoDrag === departamento
+                  ? 'opacity-50 scale-95'
+                  : departamentoDrag
+                    ? 'hover:border-2 hover:border-green-500'
                     : ''
               }`}
               draggable
@@ -340,39 +423,70 @@ export function Servicios() {
                   {departamento}
                 </h2>
               </div>
+
               <div className="grid gap-4">
-                {serviciosPorDepartamento[departamento].map((servicio) => (
+                {getServiciosOrdenados(departamento).map((servicio) => (
                   <div
                     key={servicio.id}
-                    className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition"
+                    draggable
+                    onDragStart={(e) => handleServicioDragStart(e, servicio)}
+                    onDragOver={handleServicioDragOver}
+                    onDrop={(e) => handleServicioDrop(e, servicio)}
+                    onDragEnd={handleServicioDragEnd}
+                    className={`flex items-center gap-4 p-4 rounded-lg transition cursor-move ${
+                      servicioDrag?.id === servicio.id
+                        ? 'bg-green-50 opacity-50 scale-[0.98]'
+                        : servicioDrag && servicioDrag.departamento === departamento
+                          ? 'bg-gray-50 hover:bg-green-50 hover:border hover:border-green-300'
+                          : 'bg-gray-50 hover:bg-gray-100'
+                    }`}
                   >
+                    {/* Arrastre */}
+                    <div className="text-gray-400 cursor-grab active:cursor-grabbing flex-shrink-0">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 6h.01M8 12h.01M8 18h.01M16 6h.01M16 12h.01M16 18h.01" />
+                      </svg>
+                    </div>
+
+                    {/* Orden */}
+                    <div className="w-9 h-9 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
+                      {servicio.orden ?? "0"}
+                    </div>
+
                     {/* Logo/Icono */}
                     <div className="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0">
                       {servicio.logo ? (
-                        <img 
-                          src={servicio.logo} 
-                          alt={servicio.nombre}
-                          className="w-full h-full object-cover"
-                          onError={(e) => {
-                            e.target.style.display = 'none';
-                            e.target.nextSibling.style.display = 'flex';
-                          }}
-                        />
-                      ) : null}
-                      <div 
-                        className="text-3xl"
-                        style={{ display: servicio.logo ? 'none' : 'flex' }}
-                      >
-                        {getIcono(servicio.icono)}
-                      </div>
+                        <>
+                          <img
+                            src={servicio.logo}
+                            alt={servicio.nombre}
+                            className="w-full h-full object-cover"
+                            onError={(e) => {
+                              e.target.style.display = 'none';
+                              if (e.target.nextSibling) {
+                                e.target.nextSibling.style.display = 'flex';
+                              }
+                            }}
+                          />
+                          <div
+                            className="text-3xl"
+                            style={{ display: 'none' }}
+                          >
+                            {getIcono(servicio.icono)}
+                          </div>
+                        </>
+                      ) : (
+                        <div className="text-3xl">
+                          {getIcono(servicio.icono)}
+                        </div>
+                      )}
                     </div>
 
                     {/* Nombre */}
                     <div className="flex-1">
                       <h3 className="text-lg font-bold text-gray-800">{servicio.nombre}</h3>
                       <p className="text-sm text-gray-500">
-                        Tarifa base: Bs. {servicio.tarifas?.tarifaBase?.toFixed(2) || '0.00'} | 
-                        Comisión: {servicio.tarifas?.comision?.toFixed(0) || '0'}%
+                        Tarifa base: Bs. {servicio.tarifas?.tarifaBase?.toFixed(2) || '0.00'} | Comisión: {servicio.tarifas?.comision?.toFixed(0) || '0'}%
                       </p>
                     </div>
 
@@ -423,7 +537,6 @@ export function Servicios() {
         </div>
       )}
 
-      {/* Modales */}
       {modalCrear && (
         <CreateServicioModal
           onClose={() => setModalCrear(false)}

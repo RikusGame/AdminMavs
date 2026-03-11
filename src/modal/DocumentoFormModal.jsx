@@ -15,6 +15,7 @@ const TIPOS_CAMPO = [
   { value: 'foto', label: 'Fotografía/Imagen', icon: '📷' },
   { value: 'texto', label: 'Texto', icon: '📝' },
   { value: 'numero', label: 'Número', icon: '🔢' },
+  { value: 'ubicacion', label: 'Ubicación', icon: '📍' },
   // { value: 'seleccion', label: 'Selección (Dropdown)', icon: '📋' },
   // Tipo "selección" deshabilitado temporalmente porque la creación no funciona correctamente
 ];
@@ -29,12 +30,12 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
     descripcion: '',
     orden: 1
   });
-  
+
   const [errors, setErrors] = useState({});
   const [isSaving, setIsSaving] = useState(false);
-  
+
   const esEdicion = !!documento;
-  
+
   useEffect(() => {
     if (documento) {
       setFormData({
@@ -58,10 +59,10 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
     }
     setErrors({});
   }, [documento, isOpen]);
-  
+
   const validateForm = () => {
     const newErrors = {};
-    
+
     // Validar nombre
     if (!formData.nombre.trim()) {
       newErrors.nombre = 'El nombre es obligatorio';
@@ -69,47 +70,47 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
       newErrors.nombre = 'El nombre debe tener al menos 3 caracteres';
     } else {
       // Verificar que no exista otro documento con el mismo nombre (solo si es nuevo o cambió el nombre)
-      const nombreExiste = documentosExistentes.some(doc => 
+      const nombreExiste = documentosExistentes.some(doc =>
         doc.nombre.toLowerCase() === formData.nombre.trim().toLowerCase() &&
         doc.activo &&
         (!esEdicion || doc.id !== documento.id)
       );
-      
+
       if (nombreExiste) {
         newErrors.nombre = 'Ya existe un documento con ese nombre';
       }
     }
-    
+
     // Validar descripción
     if (formData.descripcion && formData.descripcion.length > 200) {
       newErrors.descripcion = 'La descripción no debe exceder 200 caracteres';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
-  
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setIsSaving(true);
-    
+
     try {
       // Obtener paso desde categoría
       const categoriaInfo = CATEGORIAS.find(c => c.value === formData.categoria);
       const paso = categoriaInfo ? categoriaInfo.paso : 1;
-      
+
       const documentoData = {
         ...formData,
         paso,
         nombre: formData.nombre.trim(),
         descripcion: formData.descripcion.trim()
       };
-      
+
       await onSave(documentoData);
       onClose();
     } catch (error) {
@@ -119,7 +120,7 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
       setIsSaving(false);
     }
   };
-  
+
   const handleChange = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Limpiar error del campo cuando el usuario empiece a escribir
@@ -127,9 +128,9 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
       setErrors(prev => ({ ...prev, [field]: undefined }));
     }
   };
-  
+
   if (!isOpen) return null;
-  
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -149,7 +150,7 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
             <X className="w-6 h-6" />
           </button>
         </div>
-        
+
         {/* Form */}
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
           {/* Error general */}
@@ -159,7 +160,7 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
               <p className="text-sm text-red-800">{errors.general}</p>
             </div>
           )}
-          
+
           {/* Nombre del documento */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -181,7 +182,7 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
               <p className="mt-1 text-sm text-red-600">{errors.nombre}</p>
             )}
           </div>
-          
+
           {/* Categoría/Paso */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -203,7 +204,7 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
               Este documento aparecerá en el paso seleccionado del formulario de registro
             </p>
           </div>
-          
+
           {/* Tipo de campo */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -234,7 +235,7 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
               ))}
             </div>
           </div>
-          
+
           {/* Requerido - Control de 3 estados */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">Estado</label>
@@ -260,7 +261,7 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
             </div>
             <p className="text-xs text-gray-500 mt-2">Elige si el documento será obligatorio, opcional o no aplicará.</p>
           </div>
-          
+
           {/* Descripción */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -291,7 +292,7 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
               <p className="mt-1 text-sm text-red-600">{errors.descripcion}</p>
             )}
           </div>
-          
+
           {/* Preview */}
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-4">
             <h3 className="text-sm font-medium text-gray-700 mb-3">Vista Previa en Móvil</h3>
@@ -319,12 +320,13 @@ export default function DocumentoFormModal({ isOpen, onClose, onSave, documento 
                   {formData.tipo === 'foto' && '📷 Área de carga de imagen'}
                   {formData.tipo === 'texto' && '📝 Campo de texto'}
                   {formData.tipo === 'numero' && '🔢 Campo numérico'}
+                  {formData.tipo === 'ubicacion' && '📍 Selector de ubicación / GPS'}
                   {formData.tipo === 'seleccion' && '📋 Lista desplegable'}
                 </span>
               </div>
             </div>
           </div>
-          
+
           {/* Buttons */}
           <div className="flex gap-3 pt-4 border-t border-gray-200">
             <button

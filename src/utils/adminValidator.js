@@ -46,7 +46,9 @@ export async function isCurrentUserAdmin() {
     // ✨ Verificar si es un email especial de administrador
     const adminEmails = [
       "gabriela.strauss@gmail.com",
-      "admin@mujeresalvolante.com"
+      "admin@mujeresalvolante.com",
+      "pruebas@sistemas.com"
+      //123456
     ];
     
     if (adminEmails.includes(currentUser.email)) {
