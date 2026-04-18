@@ -15,6 +15,7 @@ import { PerfilConductor } from "./pages/PerfilConductor";
 import { QRManager } from "./components/QRManager";
 import { EnConstruccion } from "./pages/EnConstruccion";
 import { Servicios } from "./pages/Servicios";
+import ViajesSection from "./pages/viajes_section";
 import { isCurrentUserAdmin } from "./utils/adminValidator";
 import { UnauthorizedAccess } from "./pages/UnauthorizedAccess";
 
@@ -27,20 +28,19 @@ export default function App() {
   const [selectedUsuarioId, setSelectedUsuarioId] = useState(null);
   const [selectedConductorId, setSelectedConductorId] = useState(null);
 
-  // Verificar autenticación
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  // Verificar si el usuario es administrador
   useEffect(() => {
     if (user && !checkingPermissions) {
       setCheckingPermissions(true);
+
       isCurrentUserAdmin()
         .then((result) => {
           setIsAdmin(result);
@@ -55,7 +55,6 @@ export default function App() {
     }
   }, [user, checkingPermissions]);
 
-  // Limpiar selecciones cuando cambia la sección activa
   useEffect(() => {
     setSelectedUsuarioId(null);
     setSelectedConductorId(null);
@@ -73,54 +72,62 @@ export default function App() {
     return <Login onLoginSuccess={() => setUser(auth.currentUser)} />;
   }
 
-  // Si el usuario no es administrador, mostrar acceso denegado
   if (!isAdmin) {
     return <UnauthorizedAccess userEmail={user.email} />;
   }
 
   const renderContent = () => {
-    // Si hay un usuario seleccionado, mostrar su perfil
     if (selectedUsuarioId) {
-      return <PerfilUsuario usuarioId={selectedUsuarioId} onBack={() => setSelectedUsuarioId(null)} />;
+      return (
+        <PerfilUsuario
+          usuarioId={selectedUsuarioId}
+          onBack={() => setSelectedUsuarioId(null)}
+        />
+      );
     }
 
-    // Si hay un conductor seleccionado, mostrar su perfil
     if (selectedConductorId) {
-      return <PerfilConductor conductorId={selectedConductorId} onBack={() => setSelectedConductorId(null)} />;
+      return (
+        <PerfilConductor
+          conductorId={selectedConductorId}
+          onBack={() => setSelectedConductorId(null)}
+        />
+      );
     }
 
     switch (activeSection) {
-
       case "dashboard":
         return <Dashboard />;
+
       case "usuarios":
         return <Usuarios onSelectUsuario={setSelectedUsuarioId} />;
+
       case "conductores":
         return <Conductores onSelectConductor={setSelectedConductorId} />;
 
       case "documentos":
         return <Documentos />;
-      
+
+      case "viajes":
+        return <ViajesSection />;
+
       case "gestion-documentos":
         return <GestionDocumentos />;
-      
-      // case "inicializar-config":
-      //   return <InicializarConfig />; // Ruta deshabilitada (script de una sola vez)
-      
+
       case "tarifas":
         return <Servicios />;
-      
+
       case "banners":
         return <Banners />;
-      
+
       case "qr-recarga":
         return <QRManager />;
-      
-      // Páginas en construcción
+
       case "plan-suscripcion":
       case "preguntas-frecuentes":
       case "reglas":
         return <EnConstruccion />;
+
       default:
         return <Dashboard />;
     }
@@ -132,7 +139,6 @@ export default function App() {
         activeSection={activeSection}
         setActiveSection={setActiveSection}
       />
-      {/* Espaciador para el sidebar con iconos - 64px */}
       <div className="w-16" />
       <main className="flex-1 overflow-auto">{renderContent()}</main>
     </div>

@@ -39,7 +39,7 @@ export function PerfilConductor({ conductorId, onBack }) {
           let data = conductorSnapshot.data();
           
           const perfil = data.perfilTaxista || {};
-          const vehiculo = data.vehiculo || {};
+          const vehiculo = data.documentosVehiculo || data.vehiculo || {};
 
           // Intentar obtener el teléfono desde múltiples posibles campos
           const telefonoConductor =
@@ -84,19 +84,24 @@ export function PerfilConductor({ conductorId, onBack }) {
           }
           
           setConductor({
-            id: conductorSnapshot.id,
-            nombre: perfil.nombre || "Nombre No Disponible",
-            email: perfil.correo || "Correo No Disponible",
-            telefono: telefonoConductor,
-            fotoPerfilUrl: foto,
-            habilitado: data.habilitado || false,
-            saldo: saldoActual,
-            viajes: data.viajes || 0,
-            calificacion: data.calificacion || 0,
-            marca_vehiculo: vehiculo.marca || "No disponible",
-            modelo_vehiculo: vehiculo.modelo || "No disponible",
-            placa_vehiculo: vehiculo.placa || "No disponible",
-          });
+  id: conductorSnapshot.id,
+  nombre: perfil.nombre || "Nombre No Disponible",
+  email: perfil.correo || "Correo No Disponible",
+  telefono: telefonoConductor,
+  fotoPerfilUrl: foto,
+  habilitado: data.habilitado || vehiculo.habilitado || false,
+  saldo: saldoActual,
+  viajes: data.viajes || 0,
+  calificacion: data.calificacion || 0,
+
+  vehiculo: {
+    marca: vehiculo.marca || "N/A",
+    color: vehiculo.color || "N/A",
+    modelo: vehiculo.modelo || vehiculo.model || "N/A",
+    placa: vehiculo.placa || vehiculo.numeroPlaca || vehiculo.plate || "N/A",
+    tipoVehiculo: vehiculo.tipoVehiculo || vehiculo.tipo || "N/A",
+  },
+});
         } else {
           console.error("❌ Conductor no encontrado");
         }
@@ -319,18 +324,51 @@ export function PerfilConductor({ conductorId, onBack }) {
               </div>
 
               {/* Información del Vehículo */}
-              <div className="border-t mt-4 pt-4">
-                <h3 className="font-bold text-gray-800 mb-3">Información del Vehículo</h3>
-                {conductor.marca_vehiculo !== "No disponible" ? (
-                  <div className="bg-gray-50 p-3 rounded-lg space-y-2 text-sm">
-                    <p><span className="font-semibold text-gray-700">Marca:</span> {conductor.marca_vehiculo}</p>
-                    <p><span className="font-semibold text-gray-700">Modelo:</span> {conductor.modelo_vehiculo}</p>
-                    <p><span className="font-semibold text-gray-700">Placa:</span> <span className="uppercase font-mono">{conductor.placa_vehiculo}</span></p>
-                  </div>
-                ) : (
-                  <p className="text-gray-500 text-sm bg-gray-50 p-3 rounded-lg">No se Encontró Información del Vehículo</p>
-                )}
-              </div>
+<div className="border-t mt-4 pt-4">
+  <h3 className="font-bold text-gray-800 mb-3">Información del Vehículo</h3>
+
+  {conductor.vehiculo?.marca && conductor.vehiculo.marca !== "N/A" ? (
+    <div className="bg-white border rounded-xl p-3 shadow-sm">
+      <p className="text-sm font-semibold text-gray-700 flex items-center mb-2">
+        {conductor.vehiculo.marca}
+      </p>
+
+      <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[13px] text-gray-600">
+        <div>
+          Color:{" "}
+          <span className="font-medium text-gray-700">
+            {conductor.vehiculo.color || "N/A"}
+          </span>
+        </div>
+
+        <div>
+          Modelo:{" "}
+          <span className="font-medium text-gray-700">
+            {conductor.vehiculo.modelo || "N/A"}
+          </span>
+        </div>
+
+        <div>
+          Tipo:{" "}
+          <span className="font-medium text-gray-700">
+            {conductor.vehiculo.tipoVehiculo || "N/A"}
+          </span>
+        </div>
+
+        <div>
+          Placa:{" "}
+          <span className="font-medium text-gray-700 uppercase">
+            {String(conductor.vehiculo.placa || "N/A")}
+          </span>
+        </div>
+      </div>
+    </div>
+  ) : (
+    <p className="text-gray-500 text-sm bg-gray-50 p-3 rounded-lg">
+      No se encontró información del vehículo
+    </p>
+  )}
+</div>
 
 
             </div>

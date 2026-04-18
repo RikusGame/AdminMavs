@@ -448,10 +448,7 @@ export function Servicios() {
                       </svg>
                     </div>
 
-                    {/* Orden */}
-                    <div className="w-9 h-9 rounded-full bg-green-100 text-green-700 flex items-center justify-center text-sm font-bold flex-shrink-0">
-                      {servicio.orden ?? "0"}
-                    </div>
+                    
 
                     {/* Logo/Icono */}
                     <div className="w-16 h-16 rounded-full bg-white shadow-sm flex items-center justify-center overflow-hidden flex-shrink-0">
