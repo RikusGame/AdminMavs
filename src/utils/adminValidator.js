@@ -47,8 +47,10 @@ export async function isCurrentUserAdmin() {
     const adminEmails = [
       "gabriela.strauss@gmail.com",
       "admin@mujeresalvolante.com",
-      "pruebas@sistemas.com"
+      "pruebas@sistemas.com",
       //123456
+      "mujeresalvolanteboliviaadmin@gmail.com"
+      //MujeresVolante2026
     ];
     
     if (adminEmails.includes(currentUser.email)) {
