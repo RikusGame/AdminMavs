@@ -1,18 +1,21 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Edit, Trash2, UserCircle, Download } from 'lucide-react';
+import { Search, Trash2, ChevronUp, ChevronDown, ChevronsUpDown, FileSpreadsheet } from 'lucide-react';
 import { db } from "../config/firebase";
 import { Switch } from '../ui/switch';
 import { collection, onSnapshot, query, doc, updateDoc, deleteDoc } from "firebase/firestore";
 import EditUsuarioModal from "../modal/EditUsuarioModal";
 import DeleteAlert from "../components/DeleteAlert";
+import { formatFecha } from "../utils/fechas";
+import { exportarUsuariosAExcel } from "../utils/exportarExcel";
 
 export function Usuarios({ onSelectUsuario }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [usuarios, setUsuarios] = useState([]);
   const [loading, setLoading] = useState(true);
   const [selectedUsers, setSelectedUsers] = useState([]);
-  const [modoFilter, setModoFilter] = useState('todos');
+  const [sortBy, setSortBy] = useState('fecha'); // 'fecha' | 'nombre'
+  const [sortDir, setSortDir] = useState('desc'); // 'asc' | 'desc'
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [usuarioToDelete, setUsuarioToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -51,7 +54,8 @@ export function Usuarios({ onSelectUsuario }) {
               nombre: perfil.name || "Nombre No Disponible",
               email: perfil.email || "Correo No Disponible",
               telefono: telefono || "N/A", 
-              fecha: perfil.ultimologin ? new Date(perfil.ultimologin).toLocaleString() : "N/A", 
+              fecha: perfil.ultimologin ? new Date(perfil.ultimologin).toLocaleString() : "N/A",
+              fechaRegistro: perfil.createdAt ?? data.createdAt ?? data.fechaRegistro ?? perfil.fechaRegistro ?? null,
               activo: estadoActivo,
               photoUrl: perfil.photoUrl || (perfil.name ? perfil.name.charAt(0).toUpperCase() : '👤'),
               color: data.color || '#4caf50',
@@ -87,13 +91,51 @@ export function Usuarios({ onSelectUsuario }) {
     }
   };
 
-  const filteredUsuarios = usuarios.filter((usuario) => {
-    const matchesSearch = usuario.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          usuario.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesMode = modoFilter === 'todos' || usuario.modo === modoFilter;
+  const toggleSort = (campo) => {
+    if (sortBy === campo) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortBy(campo);
+      setSortDir(campo === 'nombre' ? 'asc' : 'desc');
+    }
+  };
 
-    return matchesSearch && matchesMode;
-  });
+  const sortIcon = (campo) => {
+    if (sortBy !== campo)
+      return <ChevronsUpDown className="w-3.5 h-3.5 text-gray-300" />;
+    return sortDir === 'asc' ? (
+      <ChevronUp className="w-3.5 h-3.5 text-green-600" />
+    ) : (
+      <ChevronDown className="w-3.5 h-3.5 text-green-600" />
+    );
+  };
+
+  const filteredUsuarios = usuarios
+    .filter((usuario) => {
+      const t = searchTerm.toLowerCase();
+      return (
+        usuario.nombre.toLowerCase().includes(t) ||
+        usuario.email.toLowerCase().includes(t)
+      );
+    })
+    .sort((a, b) => {
+      let cmp;
+      if (sortBy === 'nombre') {
+        cmp = (a.nombre || '').localeCompare(b.nombre || '', 'es', {
+          sensitivity: 'base',
+        });
+      } else {
+        const toMs = (v) => {
+          if (!v) return 0;
+          if (typeof v?.toDate === 'function') return v.toDate().getTime();
+          if (typeof v?.seconds === 'number') return v.seconds * 1000;
+          const d = new Date(v);
+          return isNaN(d.getTime()) ? 0 : d.getTime();
+        };
+        cmp = toMs(a.fechaRegistro) - toMs(b.fechaRegistro);
+      }
+      return sortDir === 'asc' ? cmp : -cmp;
+    });
 
   const toggleSelectAll = () => {
     if (selectedUsers.length === filteredUsuarios.length && filteredUsuarios.length > 0) {
@@ -190,29 +232,25 @@ export function Usuarios({ onSelectUsuario }) {
       </div>
 
       <div className="bg-white rounded-lg p-4 shadow-sm mb-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-4">
-            <select 
-              value={modoFilter}
-              onChange={(e) => setModoFilter(e.target.value)}
-              className="px-3 py-2 border border-gray-300 rounded-lg"
-            >
-              <option value="todos">Todos los Modos</option>
-              <option value="pasajero">Pasajero</option>
-              <option value="taxista">Taxista</option>
-            </select>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar aquí..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
-              />
-            </div>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4">
+          <button
+            onClick={() => exportarUsuariosAExcel(filteredUsuarios)}
+            disabled={filteredUsuarios.length === 0}
+            className="inline-flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Descargar la lista en Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Exportar Excel ({filteredUsuarios.length})
+          </button>
+          <div className="relative ml-auto">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar aquí..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none transition w-full sm:w-64"
+            />
           </div>
         </div>
 
@@ -235,9 +273,26 @@ export function Usuarios({ onSelectUsuario }) {
                 <th className="text-left py-3 px-4">
                   <span className="text-red-500">■ Todos</span>
                 </th>
-                <th className="text-left py-3 px-4">Información de Usuario</th>
+                <th className="text-left py-3 px-4">
+                  <button
+                    onClick={() => toggleSort('nombre')}
+                    className="inline-flex items-center gap-1 font-semibold hover:text-green-600 transition"
+                    title="Ordenar por nombre"
+                  >
+                    Información de Usuario {sortIcon('nombre')}
+                  </button>
+                </th>
                 <th className="text-left py-3 px-4">Correo Electrónico</th>
                 <th className="text-left py-3 px-4">Teléfono</th>
+                <th className="text-left py-3 px-4">
+                  <button
+                    onClick={() => toggleSort('fecha')}
+                    className="inline-flex items-center gap-1 font-semibold hover:text-green-600 transition"
+                    title="Ordenar por fecha de registro"
+                  >
+                    Fecha de Registro {sortIcon('fecha')}
+                  </button>
+                </th>
                 <th className="text-left py-3 px-4">Acciones</th>
               </tr>
             </thead>
@@ -277,12 +332,16 @@ export function Usuarios({ onSelectUsuario }) {
                   </td>
                   <td className="py-3 px-4 text-green-700">{usuario.email}</td>
                   <td className="py-3 px-4">{usuario.telefono}</td>
-                                    
+
+                  <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
+                    {formatFecha(usuario.fechaRegistro)}
+                  </td>
+
                   <td className="py-3 px-4">
                     <div className="flex items-center gap-2">
-                      
-                      
-                      <button 
+
+
+                      <button
                         onClick={() => openDeleteModal(usuario)}
                         className="text-red-500 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition duration-150"
                         title="Eliminar Usuario"

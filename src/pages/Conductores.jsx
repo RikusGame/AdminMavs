@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Search, Edit, Trash2, UserCircle, FileText } from "lucide-react"; 
+import { Search, Trash2, UserCircle, FileText, UserPlus, ChevronUp, ChevronDown, ChevronsUpDown, FileSpreadsheet } from "lucide-react";
 import { db } from "../config/firebase";
 import { collection, onSnapshot, query, doc, updateDoc, deleteDoc, getDoc } from "firebase/firestore";
 import { storage } from "../config/firebase";
@@ -7,13 +7,17 @@ import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { ConductorDocumentosModal } from "../modal/ConductorDocumentosModal";
 import EditConductorModal from "../modal/EditConductorModal";
 import DeleteAlert from "../components/DeleteAlert";
+import { formatFecha } from "../utils/fechas";
+import { RegistrarConductorModal } from "../modal/RegistrarConductorModal";
 
 
 export function Conductores({ onSelectConductor }) {
   const [conductores, setConductores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("todos");
+  const [sortBy, setSortBy] = useState("fecha"); // 'fecha' | 'nombre'
+  const [sortDir, setSortDir] = useState("desc"); // 'asc' | 'desc'
+  const [showRegistrar, setShowRegistrar] = useState(false);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedConductor, setSelectedConductor] = useState(null);
@@ -275,19 +279,48 @@ export function Conductores({ onSelectConductor }) {
     setIsApproveAllModalOpen(true);
   };
   
-  const filteredConductores = conductores.filter(
-    (conductor) => {
-      const matchesSearch = conductor.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           conductor.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           conductor.telefono.includes(searchTerm);
-      
-      const matchesStatus = statusFilter === "todos" ||
-                           (statusFilter === "aprobados" && conductor.habilitado) ||
-                           (statusFilter === "pendientes" && !conductor.habilitado);
-      
-      return matchesSearch && matchesStatus;
+  const toggleSort = (campo) => {
+    if (sortBy === campo) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(campo);
+      // Por defecto: nombre A→Z, fecha más reciente primero.
+      setSortDir(campo === "nombre" ? "asc" : "desc");
     }
-  );
+  };
+
+  const sortIcon = (campo) => {
+    if (sortBy !== campo)
+      return <ChevronsUpDown className="w-3.5 h-3.5 text-gray-300" />;
+    return sortDir === "asc" ? (
+      <ChevronUp className="w-3.5 h-3.5 text-green-600" />
+    ) : (
+      <ChevronDown className="w-3.5 h-3.5 text-green-600" />
+    );
+  };
+
+  const filteredConductores = conductores
+    .filter((conductor) => {
+      const t = searchTerm.toLowerCase();
+      return (
+        conductor.nombre.toLowerCase().includes(t) ||
+        conductor.email.toLowerCase().includes(t) ||
+        conductor.telefono.includes(searchTerm)
+      );
+    })
+    .sort((a, b) => {
+      let cmp;
+      if (sortBy === "nombre") {
+        cmp = (a.nombre || "").localeCompare(b.nombre || "", "es", {
+          sensitivity: "base",
+        });
+      } else {
+        const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dbb = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        cmp = da - dbb;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
 
   if (loading && conductores.length === 0) {
     return (
@@ -306,8 +339,16 @@ export function Conductores({ onSelectConductor }) {
             <h1>Conductores</h1>
             <p className="text-sm text-gray-500">Gestión y administración de conductores</p>
           </div>
-          <div className="text-sm text-gray-500">
-            Panel de Control {'>'} Conductores
+          <div className="flex flex-col items-end gap-2">
+            <div className="text-sm text-gray-500">
+              Panel de Control {'>'} Conductores
+            </div>
+            <button
+              onClick={() => setShowRegistrar(true)}
+              className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-green-500 to-green-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-green-500/30 hover:from-green-600 hover:to-green-700 transition-all"
+            >
+              <UserPlus className="w-4 h-4" /> Registrar conductor
+            </button>
           </div>
         </div>
       </div>
@@ -324,18 +365,25 @@ export function Conductores({ onSelectConductor }) {
         </div>
       </div>
       <div className="bg-white rounded-lg p-4 shadow-sm mb-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Buscar por nombre, correo o teléfono..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg"
-              />
-            </div>
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4">
+          <button
+            onClick={() => exportarConductoresAExcel(filteredConductores)}
+            disabled={filteredConductores.length === 0}
+            className="inline-flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Descargar la lista en Excel"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Exportar Excel ({filteredConductores.length})
+          </button>
+          <div className="relative ml-auto">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="Buscar por nombre, correo o teléfono..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none transition w-full sm:w-72"
+            />
           </div>
         </div>
 
@@ -343,11 +391,27 @@ export function Conductores({ onSelectConductor }) {
           <table className="w-full">
             <thead>
               <tr className="border-b">
-                <th className="text-left py-3 px-4">Nombre</th>
+                <th className="text-left py-3 px-4">
+                  <button
+                    onClick={() => toggleSort("nombre")}
+                    className="inline-flex items-center gap-1 font-semibold hover:text-green-600 transition"
+                    title="Ordenar por nombre"
+                  >
+                    Nombre {sortIcon("nombre")}
+                  </button>
+                </th>
                 <th className="text-left py-3 px-4">Correo</th>
                 <th className="text-left py-3 px-4">Teléfono</th>
-                {/*<th className="text-left py-3 px-4">Estado</th>*/}
-                <th className="text-left py-3 px-4">Docs</th> 
+                <th className="text-left py-3 px-4">
+                  <button
+                    onClick={() => toggleSort("fecha")}
+                    className="inline-flex items-center gap-1 font-semibold hover:text-green-600 transition"
+                    title="Ordenar por fecha de registro"
+                  >
+                    Fecha de Registro {sortIcon("fecha")}
+                  </button>
+                </th>
+                <th className="text-left py-3 px-4">Docs</th>
                 <th className="text-left py-3 px-4">Acciones</th>
               </tr>
             </thead>
@@ -383,7 +447,11 @@ export function Conductores({ onSelectConductor }) {
                   </td>
                   <td className="py-3 px-4 text-sm text-green-700">{conductor.email}</td>
                   <td className="py-3 px-4 text-sm">{conductor.telefono}</td>
-                  
+
+                  <td className="py-3 px-4 text-sm text-gray-600 whitespace-nowrap">
+                    {formatFecha(conductor.createdAt)}
+                  </td>
+
                   <td className="py-3 px-4">
                     <button
                       onClick={() => openDocumentsModal(conductor)}
@@ -429,6 +497,10 @@ export function Conductores({ onSelectConductor }) {
         />
       )}
       
+      {showRegistrar && (
+        <RegistrarConductorModal onClose={() => setShowRegistrar(false)} />
+      )}
+
       {isDeleteModalOpen && conductorToDelete && (
         <DeleteAlert
           isOpen={isDeleteModalOpen}
