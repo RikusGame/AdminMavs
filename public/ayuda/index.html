@@ -1,0 +1,394 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guía del panel · Mujeres al Volante</title>
+<meta name="description" content="Guía de uso del panel administrativo de Mujeres al Volante, sección por sección y sin tecnicismos.">
+<style>
+  :root{
+    --bg:#F5F8F1; --surface:#FFFFFF; --panel:#1A1D29;
+    --ink:#1A1D29; --muted:#5C6673; --faint:#8A93A0;
+    --green:#16A34A; --green-ink:#0F7A38; --lime:#7CB342;
+    --border:#E4E9DE; --border-strong:#D3DAC9;
+    --code-bg:#EEF2E8;
+    --ok-bg:#EAF7EF; --ok-bd:#BFE6CD;
+    --warn-bg:#FDF4E7; --warn-bd:#F3D9A9; --warn-ink:#96591A;
+    --sans:ui-sans-serif,-apple-system,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono","Cascadia Mono","Segoe UI Mono",Menlo,Consolas,monospace;
+    --nav-w:280px;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);
+    font-size:16px;line-height:1.7;-webkit-font-smoothing:antialiased}
+  a{color:var(--green-ink);text-decoration:none}
+  h1,h2,h3{text-wrap:balance;line-height:1.2;margin:0}
+  .wrap{display:grid;grid-template-columns:var(--nav-w) 1fr;min-height:100vh}
+  .side{position:sticky;top:0;align-self:start;height:100vh;overflow-y:auto;
+    background:var(--panel);color:#C9CEDA;padding:0 0 2rem;border-right:1px solid #0f121b}
+  .brand{display:flex;align-items:center;gap:.7rem;padding:1.4rem 1.5rem 1rem;
+    position:sticky;top:0;background:var(--panel);z-index:2}
+  .brand .mark{width:38px;height:38px;border-radius:11px;background:var(--lime);
+    display:grid;place-items:center;flex:0 0 auto}
+  .brand .mark svg{width:22px;height:22px;color:var(--panel)}
+  .brand b{color:#fff;font-size:16px;font-weight:600;letter-spacing:-.01em;display:block}
+  .brand span{color:#8A93A0;font-size:12px}
+  .search{padding:0 1.1rem 1rem}
+  .search input{width:100%;background:#252836;border:1px solid #333748;color:#fff;
+    border-radius:10px;padding:.55rem .8rem;font-size:14px;font-family:inherit;outline:none}
+  .search input::placeholder{color:#7A8493}
+  .search input:focus{border-color:var(--lime)}
+  .navgroup{padding:.2rem 0}
+  .navgroup > p{margin:.9rem 1.5rem .3rem;font-size:11px;letter-spacing:.09em;
+    text-transform:uppercase;color:#6B7484;font-weight:600}
+  .navgroup a{display:flex;align-items:center;gap:.6rem;padding:.42rem 1.5rem;
+    color:#AEB6C4;font-size:14.5px;border-left:2px solid transparent}
+  .navgroup a:hover{color:#fff;background:#20232f}
+  .navgroup a.active{color:var(--panel);background:var(--lime);border-left-color:#fff;font-weight:600}
+  .navgroup a svg{width:16px;height:16px;flex:0 0 auto;opacity:.85}
+  main{min-width:0;padding:0 clamp(1.2rem,4vw,4rem)}
+  .inner{max-width:820px;margin:0 auto;padding:2.4rem 0 5rem}
+  .hero{border:1px solid var(--border);background:var(--surface);border-radius:16px;
+    padding:2rem 2.2rem;margin-bottom:2.6rem}
+  .eyebrow{font-size:12px;letter-spacing:.11em;text-transform:uppercase;
+    color:var(--green-ink);font-weight:600;margin:0 0 .6rem}
+  .hero h1{font-size:clamp(26px,4vw,36px);letter-spacing:-.02em;font-weight:650}
+  .hero p{color:var(--muted);margin:.7rem 0 0;max-width:60ch}
+  .meta{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:1.3rem}
+  .chip{font-size:12.5px;background:var(--code-bg);border:1px solid var(--border);
+    color:var(--muted);border-radius:999px;padding:.28rem .75rem}
+  section.doc{scroll-margin-top:1.4rem;padding:2.2rem 0;border-top:1px solid var(--border)}
+  section.doc:first-of-type{border-top:0}
+  .h-row{display:flex;align-items:center;gap:.85rem;margin-bottom:.2rem}
+  .h-ic{width:40px;height:40px;border-radius:11px;flex:0 0 auto;
+    background:var(--ok-bg);color:var(--green-ink);display:grid;place-items:center;border:1px solid var(--ok-bd)}
+  .h-ic svg{width:21px;height:21px}
+  section.doc h2{font-size:23px;letter-spacing:-.015em;font-weight:640}
+  .lede{color:var(--muted);margin:.55rem 0 0;font-size:16.5px}
+  h3.step-title{font-size:13px;letter-spacing:.08em;text-transform:uppercase;
+    color:var(--faint);font-weight:700;margin:1.7rem 0 .5rem}
+  ol.steps{list-style:none;counter-reset:s;margin:.2rem 0 0;padding:0}
+  ol.steps li{counter-increment:s;position:relative;padding:.35rem 0 .35rem 2.4rem;color:#2A2F3A}
+  ol.steps li::before{content:counter(s);position:absolute;left:0;top:.28rem;
+    width:1.55rem;height:1.55rem;border-radius:50%;background:var(--green);color:#fff;
+    font-size:12.5px;font-weight:600;display:grid;place-items:center;font-variant-numeric:tabular-nums}
+  ul.bul{margin:.3rem 0 0;padding-left:1.2rem}
+  ul.bul li{margin:.28rem 0;color:#2A2F3A}
+  .callout{display:flex;gap:.7rem;border-radius:12px;padding:.85rem 1rem;margin:1.1rem 0 0;
+    font-size:14.5px;line-height:1.55}
+  .callout svg{width:18px;height:18px;flex:0 0 auto;margin-top:2px}
+  .callout.tip{background:var(--ok-bg);border:1px solid var(--ok-bd);color:#215B38}
+  .callout.tip svg{color:var(--green-ink)}
+  .callout.warn{background:var(--warn-bg);border:1px solid var(--warn-bd);color:var(--warn-ink)}
+  .callout.warn svg{color:var(--warn-ink)}
+  .callout b{font-weight:600}
+  kbd{font-family:var(--mono);font-size:12.5px;background:var(--code-bg);
+    border:1px solid var(--border-strong);border-bottom-width:2px;border-radius:6px;
+    padding:.08rem .4rem;color:#2A2F3A;white-space:nowrap}
+  .noresult{color:var(--muted);padding:.4rem 1.5rem;font-size:14px;display:none}
+  footer{border-top:1px solid var(--border);color:var(--faint);font-size:13.5px;padding:1.6rem 0 0;margin-top:1rem}
+  @media (max-width:860px){
+    .wrap{grid-template-columns:1fr}
+    .side{position:static;height:auto;max-height:none}
+    .navgroup{columns:2;padding:.4rem .5rem 1rem}
+    .navgroup > p{columns:1}
+  }
+  @media print{.side{display:none}.wrap{display:block}.hero{break-inside:avoid}section.doc{break-inside:avoid}body{background:#fff}}
+  :focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:4px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <aside class="side" id="side">
+    <div class="brand">
+      <div class="mark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9L18.4 7c-.3-.6-.9-1-1.6-1H7.2c-.7 0-1.3.4-1.6 1L3.5 11.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg></div>
+      <div><b>MAV · Panel admin</b><span>Guía de uso</span></div>
+    </div>
+    <div class="search"><input id="q" type="text" placeholder="Buscar sección…" aria-label="Buscar sección"></div>
+    <nav id="nav"></nav>
+    <p class="noresult" id="noresult">Sin resultados.</p>
+  </aside>
+
+  <main>
+    <div class="inner">
+      <div class="hero">
+        <p class="eyebrow">Mujeres al Volante</p>
+        <h1>Guía del panel de administración</h1>
+        <p>Todo lo que podés hacer desde el panel, explicado paso a paso y sin términos técnicos. Usá el menú de la izquierda para saltar a cada sección, o el buscador para encontrarla rápido.</p>
+        <div class="meta">
+          <span class="chip">mav-tic.com</span>
+          <span class="chip">15 secciones</span>
+          <span class="chip">Actualizada · julio 2026</span>
+        </div>
+      </div>
+
+      <section class="doc" id="inicio" data-title="Empezar Ingresar acceso">
+        <div class="h-row"><span class="h-ic" data-icon="help"></span><h2>Antes de empezar</h2></div>
+        <p class="lede">Cómo entrar al panel y moverte por él.</p>
+        <h3 class="step-title">Ingresar</h3>
+        <ol class="steps">
+          <li>Entrá a <b>mav-tic.com</b> desde cualquier navegador (computadora o celular).</li>
+          <li>Escribí tu <b>correo</b> y tu <b>contraseña</b>. El ícono del ojo te deja ver la contraseña por si dudás.</li>
+          <li>Tocá <b>Iniciar sesión</b>.</li>
+        </ol>
+        <h3 class="step-title">Moverte por el panel</h3>
+        <ul class="bul">
+          <li>El <b>menú</b> está en la barra oscura de la izquierda: acercá el mouse y se abre solo.</li>
+          <li>Cada sección tiene un <b>ícono de <kbd>?</kbd></b>: al pasar el mouse te dice, en una frase, qué hace, con un enlace de <b>Ver más</b> que trae acá.</li>
+          <li>Según tu cuenta vas a ver <b>solo las secciones a las que tenés acceso</b>. Si te falta alguna, pedila a quien administra los accesos.</li>
+        </ul>
+        <div class="callout tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18h6M10 22h4M12 2a7 7 0 0 0-4 12.7c.5.4.8 1 .9 1.6h6.2c.1-.6.4-1.2.9-1.6A7 7 0 0 0 12 2Z"/></svg>
+          <div>Esta guía la podés <b>imprimir o guardar como PDF</b> con <kbd>Ctrl</kbd>+<kbd>P</kbd> para dársela a alguien del equipo.</div></div>
+      </section>
+
+      <section class="doc" id="dashboard" data-title="Panel de Control inicio resumen">
+        <div class="h-row"><span class="h-ic" data-icon="home"></span><h2>Panel de Control</h2></div>
+        <p class="lede">La pantalla de inicio: un resumen de cómo viene la operación.</p>
+        <ul class="bul">
+          <li>Muestra los números clave del período: <b>viajes</b> (completados y cancelados), <b>comisiones</b> ganadas y <b>recargas</b>.</li>
+          <li>Incluye un aviso de <b>recargas pendientes</b> por revisar (las que enviaron las conductoras).</li>
+        </ul>
+        <div class="callout tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          <div>Es solo de lectura: acá no se cambia nada, se mira el estado general.</div></div>
+      </section>
+
+      <section class="doc" id="usuarios" data-title="Usuarios pasajeras cuentas excel">
+        <div class="h-row"><span class="h-ic" data-icon="users"></span><h2>Usuarios</h2></div>
+        <p class="lede">La lista de todas las personas registradas (pasajeras y conductoras).</p>
+        <h3 class="step-title">Cómo se usa</h3>
+        <ol class="steps">
+          <li>Usá el <b>buscador</b> para encontrar a alguien por nombre o correo.</li>
+          <li>Tocá el <b>nombre</b> de una persona para ver su perfil completo.</li>
+          <li>Para bajar la lista, tocá el botón verde <b>Exportar Excel</b> (el número entre paréntesis te dice cuántos registros va a bajar).</li>
+        </ol>
+        <div class="callout tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/></svg>
+          <div>El Excel sale <b>tal como estás viendo la lista</b>: si buscaste o filtraste algo, se exporta eso.</div></div>
+      </section>
+
+      <section class="doc" id="conductores" data-title="Conductores conductoras habilitar servicio saldo documentos excel">
+        <div class="h-row"><span class="h-ic" data-icon="car"></span><h2>Conductores</h2></div>
+        <p class="lede">Todo lo de las conductoras: habilitarlas, asignarles servicio, saldo y ver sus datos.</p>
+        <h3 class="step-title">Cómo se usa</h3>
+        <ol class="steps">
+          <li>Tocá una conductora para abrir su <b>perfil</b>.</li>
+          <li><b>Habilitarla</b>: con el interruptor de "Habilitado". Recién habilitada puede recibir viajes.</li>
+          <li><b>Asignarle el servicio</b> (Taxi, Moto taxi…) desde el desplegable de <b>Servicio</b>. Con eso solo le llegan los viajes de ese servicio; sin asignar, le llegan todos.</li>
+          <li><b>Agregar saldo</b>: en la billetera del perfil, para que pueda tomar viajes (la comisión sale de ahí).</li>
+          <li>Desde el perfil también ves sus <b>documentos</b>, <b>reglas del auto</b>, <b>domicilio</b> y su <b>historial de viajes</b>.</li>
+        </ol>
+        <div class="callout tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3v4a1 1 0 0 0 1 1h4"/><path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2Z"/></svg>
+          <div>También podés <b>registrar una conductora nueva</b> con el botón "Registrar conductor", y <b>exportar la lista a Excel</b>.</div></div>
+      </section>
+
+      <section class="doc" id="empresas" data-title="Empresas corporativas facturacion">
+        <div class="h-row"><span class="h-ic" data-icon="building"></span><h2>Empresas</h2></div>
+        <p class="lede">Cuentas corporativas que pagan los viajes de sus empleados.</p>
+        <ul class="bul">
+          <li>Ves la lista de empresas con su estado y su contacto.</li>
+          <li>Podés <b>activarlas o desactivarlas</b> y revisar su <b>facturación</b>.</li>
+        </ul>
+        <div class="callout warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+          <div>Crear una empresa nueva se hace desde la <b>versión web</b> del panel (tiene un formulario con logo y contacto).</div></div>
+      </section>
+
+      <section class="doc" id="documentos" data-title="Documentos revision aprobar rechazar licencia">
+        <div class="h-row"><span class="h-ic" data-icon="file"></span><h2>Documentos</h2></div>
+        <p class="lede">Revisar los documentos que suben las conductoras (licencia, carnet, etc.).</p>
+        <h3 class="step-title">Cómo se usa</h3>
+        <ol class="steps">
+          <li>Elegí a la conductora para ver sus documentos.</li>
+          <li>Revisá cada foto. Si está bien, tocá <b>Aprobar</b>.</li>
+          <li>Si algo está mal, tocá <b>Rechazar</b> y escribí el <b>motivo</b> (ej: "la foto está borrosa").</li>
+        </ol>
+        <div class="callout tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+          <div>Al rechazar, a la conductora le llega un <b>aviso a su celular</b> y debe volver a subir ese documento corregido.</div></div>
+      </section>
+
+      <section class="doc" id="viajes" data-title="Viajes historial filtros excel">
+        <div class="h-row"><span class="h-ic" data-icon="map-pin"></span><h2>Viajes</h2></div>
+        <p class="lede">El historial de todos los viajes de la plataforma.</p>
+        <ul class="bul">
+          <li><b>Filtrá</b> por estado (completado, cancelado, en curso…), tipo (normal o programado) o categoría (empresa o normal).</li>
+          <li><b>Buscá</b> por conductora o correo.</li>
+          <li>Tocá un viaje para ver su <b>detalle</b>, y usá <b>Exportar Excel</b> para bajar el listado.</li>
+        </ul>
+      </section>
+
+      <section class="doc" id="mapa-conductoras" data-title="Mapa conductoras en vivo tiempo real">
+        <div class="h-row"><span class="h-ic" data-icon="map"></span><h2>Mapa de conductoras</h2></div>
+        <p class="lede">Un mapa en vivo con las conductoras conectadas en este momento.</p>
+        <ul class="bul">
+          <li>Cada punto es una conductora activa; a la derecha tenés la <b>lista</b> de las que están en línea.</li>
+          <li>Tocá una de la lista para <b>centrarla</b> en el mapa.</li>
+        </ul>
+        <div class="callout tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          <div>Se actualiza solo. Una conductora aparece como activa mientras tenga la app abierta y conectada.</div></div>
+      </section>
+
+      <section class="doc" id="gestion-documentos" data-title="Gestion documentos configuracion requeridos">
+        <div class="h-row"><span class="h-ic" data-icon="settings"></span><h2>Gestión de Documentos</h2></div>
+        <p class="lede">Definir qué documentos se les piden a las conductoras al registrarse.</p>
+        <ul class="bul">
+          <li>Agregá, editá o quitá documentos de la lista.</li>
+          <li>Marcá cuáles son <b>obligatorios</b> y ordená cómo aparecen.</li>
+        </ul>
+        <div class="callout warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+          <div>Esto afecta a <b>todas</b> las conductoras que se registren de ahí en adelante. Cambialo con cuidado.</div></div>
+      </section>
+
+      <section class="doc" id="qr-recarga" data-title="QR recargas saldo comprobantes aprobar">
+        <div class="h-row"><span class="h-ic" data-icon="credit-card"></span><h2>QR y Recargas</h2></div>
+        <p class="lede">El QR con el que las conductoras cargan saldo, y la bandeja para aprobar esas recargas.</p>
+        <h3 class="step-title">Aprobar una recarga</h3>
+        <ol class="steps">
+          <li>En <b>Solicitudes</b> ves las recargas pendientes con la <b>foto del comprobante</b>.</li>
+          <li>Revisá el comprobante y el monto. Si está bien, tocá <b>Aprobar</b>: el saldo se acredita al instante.</li>
+          <li>Si no corresponde, tocá <b>Rechazar</b> con un motivo.</li>
+        </ol>
+        <h3 class="step-title">Cambiar el QR de cobro</h3>
+        <ul class="bul">
+          <li>En <b>Gestión QR</b> subís la imagen del QR nuevo; las conductoras lo ven al instante en la app.</li>
+        </ul>
+        <div class="callout tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg>
+          <div>Cuando aprobás o rechazás, a la conductora le llega un <b>aviso a su celular</b> con el resultado.</div></div>
+      </section>
+
+      <section class="doc" id="banners" data-title="Banners publicidad imagenes home">
+        <div class="h-row"><span class="h-ic" data-icon="flag"></span><h2>Banners</h2></div>
+        <p class="lede">Las imágenes promocionales que ven las usuarias en la pantalla principal de la app.</p>
+        <ul class="bul">
+          <li><b>Subí</b> una imagen nueva, <b>activá o desactivá</b> las que quieras mostrar, o <b>eliminá</b> las viejas.</li>
+        </ul>
+      </section>
+
+      <section class="doc" id="notificaciones" data-title="Notificaciones push avisos enviar">
+        <div class="h-row"><span class="h-ic" data-icon="bell"></span><h2>Notificaciones</h2></div>
+        <p class="lede">Enviar avisos (push) directo al celular de las usuarias.</p>
+        <h3 class="step-title">Enviar un aviso</h3>
+        <ol class="steps">
+          <li>Elegí a quién le llega: <b>a todas</b>, solo <b>pasajeras</b>, solo <b>conductoras</b> o a <b>una persona</b>.</li>
+          <li>Escribí el <b>título</b> y el <b>mensaje</b>.</li>
+          <li>Tocá <b>Enviar</b>. Queda registrado en el historial de abajo.</li>
+        </ol>
+      </section>
+
+      <section class="doc" id="tarifas" data-title="Servicios tarifas precios departamento taxi moto">
+        <div class="h-row"><span class="h-ic" data-icon="dollar"></span><h2>Servicios</h2></div>
+        <p class="lede">Los tipos de servicio (Taxi, Moto taxi…) y sus tarifas por departamento.</p>
+        <h3 class="step-title">Cómo se usa</h3>
+        <ol class="steps">
+          <li>Elegí el <b>departamento</b> arriba (La Paz, Cochabamba, etc.).</li>
+          <li>Para cada servicio podés <b>activarlo/desactivarlo</b>, <b>editar sus tarifas</b> o cambiar su orden.</li>
+          <li>Con <b>Crear servicio</b> agregás uno nuevo (nombre, logo y precios).</li>
+        </ol>
+        <div class="callout warn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+          <div>Las tarifas son <b>por departamento</b>: revisá que estés en el correcto antes de tocar precios.</div></div>
+      </section>
+
+      <section class="doc" id="administradores" data-title="Administradores cuentas accesos permisos">
+        <div class="h-row"><span class="h-ic" data-icon="shield"></span><h2>Administradores</h2></div>
+        <p class="lede">Crear otras cuentas de administración y decidir qué puede ver cada una.</p>
+        <h3 class="step-title">Crear un administrador</h3>
+        <ol class="steps">
+          <li>Ingresá el <b>correo</b> y el <b>nombre</b> de la persona.</li>
+          <li>El sistema genera una <b>contraseña</b>: copiala y pasásela (también le llega por correo).</li>
+          <li>Con <b>Niveles de acceso</b> marcás qué secciones puede ver esa persona.</li>
+        </ol>
+        <div class="callout tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/></svg>
+          <div>Podés <b>desactivar</b> una cuenta cuando alguien deja de trabajar, sin borrarla.</div></div>
+      </section>
+
+      <section class="doc" id="preguntas-frecuentes" data-title="Preguntas frecuentes ayuda faq">
+        <div class="h-row"><span class="h-ic" data-icon="help"></span><h2>Preguntas Frecuentes</h2></div>
+        <p class="lede">Las preguntas y respuestas que ven las usuarias en la sección de ayuda de la app.</p>
+        <ul class="bul">
+          <li>Creá una pregunta con su respuesta.</li>
+          <li>Elegí a quién va dirigida: <b>pasajeras</b>, <b>conductoras</b> o <b>ambas</b>.</li>
+          <li>Activá o desactivá cada una según quieras mostrarla.</li>
+        </ul>
+      </section>
+
+      <section class="doc" id="reglas" data-title="Reglas conductores auto mascotas fumar">
+        <div class="h-row"><span class="h-ic" data-icon="ruler"></span><h2>Reglas de conductores</h2></div>
+        <p class="lede">El catálogo de reglas del auto (No mascotas, Prohibido fumar…).</p>
+        <ul class="bul">
+          <li>Vos creás y activás las reglas disponibles.</li>
+          <li>Después, <b>cada conductora elige</b> cuáles aplican a su vehículo, y las <b>pasajeras las ven</b> antes de viajar.</li>
+        </ul>
+        <div class="callout tip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+          <div>Acá armás el <b>catálogo</b>; no marcás las reglas de cada auto (eso lo hace la conductora desde su app).</div></div>
+      </section>
+
+      <footer>
+        Guía de uso del panel administrativo de Mujeres al Volante · Pensada para el equipo, sin tecnicismos.
+        Cualquier duda sobre una sección, mirá el ícono <kbd>?</kbd> dentro del panel.
+      </footer>
+    </div>
+  </main>
+</div>
+
+<script>
+(function(){
+  var ICONS={
+    home:'<path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/>',
+    users:'<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    car:'<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9L18.4 7c-.3-.6-.9-1-1.6-1H7.2c-.7 0-1.3.4-1.6 1L3.5 11.1C2.7 11.3 2 12.1 2 13v3c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>',
+    building:'<rect width="16" height="20" x="4" y="2" rx="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01M16 6h.01M12 6h.01M12 10h.01M12 14h.01M16 10h.01M16 14h.01M8 10h.01M8 14h.01"/>',
+    file:'<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+    'map-pin':'<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
+    map:'<path d="M14.5 5.5a2 2 0 0 0 1.8 0l3.7-1.8A1 1 0 0 1 21 4.6v12.8a1 1 0 0 1-.6.9l-4.5 2.3a2 2 0 0 1-1.8 0l-4.2-2.1a2 2 0 0 0-1.8 0l-3.7 1.8A1 1 0 0 1 3 19.4V6.6a1 1 0 0 1 .6-.9l4.5-2.3a2 2 0 0 1 1.8 0z"/><path d="M15 5.8v15M9 3.2v15"/>',
+    settings:'<circle cx="12" cy="12" r="3"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+    'credit-card':'<rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/>',
+    flag:'<path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/>',
+    bell:'<path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/>',
+    dollar:'<line x1="12" x2="12" y1="2" y2="22"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    shield:'<path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m9 12 2 2 4-4"/>',
+    help:'<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+    ruler:'<path d="M21.3 15.3a2.4 2.4 0 0 1 0 3.4l-2.6 2.6a2.4 2.4 0 0 1-3.4 0L2.7 8.7a2.4 2.4 0 0 1 0-3.4l2.6-2.6a2.4 2.4 0 0 1 3.4 0Z"/><path d="m14.5 12.5 2-2M11.5 9.5l2-2M8.5 6.5l2-2M17.5 15.5l2-2"/>'
+  };
+  function svg(name){return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">'+(ICONS[name]||'')+'</svg>';}
+  document.querySelectorAll('[data-icon]').forEach(function(el){el.innerHTML=svg(el.getAttribute('data-icon'));});
+  var GROUPS=[
+    {t:'Empezar',ids:['inicio']},
+    {t:'Administración',ids:['dashboard']},
+    {t:'Cuentas',ids:['usuarios','conductores','empresas','documentos']},
+    {t:'Viajes',ids:['viajes','mapa-conductoras']},
+    {t:'Configuración',ids:['gestion-documentos','qr-recarga','banners','notificaciones','tarifas','administradores','preguntas-frecuentes','reglas']}
+  ];
+  var ICON_OF={inicio:'help',dashboard:'home',usuarios:'users',conductores:'car',empresas:'building',documentos:'file',viajes:'map-pin','mapa-conductoras':'map','gestion-documentos':'settings','qr-recarga':'credit-card',banners:'flag',notificaciones:'bell',tarifas:'dollar',administradores:'shield','preguntas-frecuentes':'help',reglas:'ruler'};
+  var nav=document.getElementById('nav');
+  GROUPS.forEach(function(g){
+    var wrap=document.createElement('div');wrap.className='navgroup';
+    var p=document.createElement('p');p.textContent=g.t;wrap.appendChild(p);
+    g.ids.forEach(function(id){
+      var sec=document.getElementById(id);if(!sec)return;
+      var title=sec.querySelector('h2').textContent;
+      var a=document.createElement('a');a.href='#'+id;a.dataset.id=id;
+      a.dataset.search=(title+' '+(sec.dataset.title||'')).toLowerCase();
+      a.innerHTML=svg(ICON_OF[id]||'help')+'<span>'+title+'</span>';
+      wrap.appendChild(a);
+    });
+    nav.appendChild(wrap);
+  });
+  var links=Array.prototype.slice.call(nav.querySelectorAll('a'));
+  var byId={};links.forEach(function(a){byId[a.dataset.id]=a;});
+  var obs=new IntersectionObserver(function(entries){
+    entries.forEach(function(e){
+      if(e.isIntersecting){links.forEach(function(a){a.classList.remove('active');});
+        var a=byId[e.target.id];if(a)a.classList.add('active');}
+    });
+  },{rootMargin:'-15% 0px -70% 0px',threshold:0});
+  document.querySelectorAll('section.doc').forEach(function(s){obs.observe(s);});
+  var q=document.getElementById('q'),nores=document.getElementById('noresult');
+  q.addEventListener('input',function(){
+    var t=q.value.trim().toLowerCase();var any=false;
+    links.forEach(function(a){var show=!t||a.dataset.search.indexOf(t)>-1;a.hidden=!show;if(show)any=true;});
+    document.querySelectorAll('.navgroup p').forEach(function(p){
+      var grp=p.parentElement;var vis=grp.querySelectorAll('a:not([hidden])').length;p.style.display=vis?'':'none';});
+    nores.style.display=any?'none':'block';
+  });
+})();
+</script>
+</body>
+</html>

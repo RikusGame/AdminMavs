@@ -21,15 +21,40 @@ import {
   LogOut,
   UserCircle,
 } from "lucide-react";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { signOut } from "firebase/auth";
 import { auth } from "../config/firebase";
 import { PerfilAdminModal } from "../components/PerfilAdminModal";
+
+// Base de la documentación publicada en el mismo hosting (mav-tic.com/ayuda).
+// Cada sección del menú enlaza a su ancla: /ayuda/#<id>.
+const DOCS_BASE = "/ayuda/";
 
 export function Sidebar({ activeSection, setActiveSection, isExpanded, setIsExpanded, puede }) {
   const [isDriversMenuOpen, setIsDriversMenuOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [mostrarPerfil, setMostrarPerfil] = useState(false);
+
+  // Tooltip de ayuda con enlace "Ver más". Se posiciona fijo (fixed) a partir
+  // del ícono "?" para no quedar recortado por el scroll del menú.
+  const [hint, setHint] = useState(null); // { text, href, top, left }
+  const hintTimer = useRef(null);
+
+  const mostrarHint = (e, item) => {
+    clearTimeout(hintTimer.current);
+    const r = e.currentTarget.getBoundingClientRect();
+    setHint({
+      text: item.ayuda,
+      href: `${DOCS_BASE}#${item.id}`,
+      top: Math.min(r.top, window.innerHeight - 150),
+      left: r.right + 12,
+    });
+  };
+  const ocultarHintPronto = () => {
+    clearTimeout(hintTimer.current);
+    hintTimer.current = setTimeout(() => setHint(null), 180);
+  };
+  const mantenerHint = () => clearTimeout(hintTimer.current);
 
   const cerrarSesion = async () => {
     try {
@@ -347,12 +372,21 @@ export function Sidebar({ activeSection, setActiveSection, isExpanded, setIsExpa
                       <item.icon className="w-4 h-4" />
                       <span className="flex-1 text-left">{item.label}</span>
 
-                      {/* Ícono de ayuda: al pasar el mouse muestra qué hace
-                          la sección (tooltip). No navega al hacer clic. */}
+                      {/* Ícono de ayuda: al pasar el mouse muestra un tooltip
+                          con la explicación + enlace "Ver más" a la guía. Al
+                          hacer clic abre la guía directo. No navega de sección. */}
                       {item.ayuda && (
                         <span
-                          title={item.ayuda}
-                          onClick={(e) => e.stopPropagation()}
+                          onMouseEnter={(e) => mostrarHint(e, item)}
+                          onMouseLeave={ocultarHintPronto}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(
+                              `${DOCS_BASE}#${item.id}`,
+                              "_blank",
+                              "noopener"
+                            );
+                          }}
                           className={`shrink-0 cursor-help transition-opacity ${
                             activeSection === item.id
                               ? "text-[#1a1d29]/70 hover:text-[#1a1d29]"
@@ -416,6 +450,27 @@ export function Sidebar({ activeSection, setActiveSection, isExpanded, setIsExpa
           </button>
         </div>
       </aside>
+
+      {/* Tooltip de ayuda con enlace "Ver más" (posición fija, no se recorta) */}
+      {hint && (
+        <div
+          onMouseEnter={mantenerHint}
+          onMouseLeave={ocultarHintPronto}
+          style={{ position: "fixed", top: hint.top, left: hint.left }}
+          className="z-[70] w-64 bg-white text-[#1a1d29] rounded-xl shadow-2xl border border-gray-200 p-3"
+        >
+          <p className="text-[13px] leading-snug text-gray-700">{hint.text}</p>
+          <a
+            href={hint.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="mt-2 inline-flex items-center gap-1 text-[13px] font-semibold text-green-600 hover:text-green-700"
+          >
+            Ver más
+            <ChevronRight className="w-3.5 h-3.5" />
+          </a>
+        </div>
+      )}
 
       {mostrarPerfil && (
         <PerfilAdminModal onClose={() => setMostrarPerfil(false)} />
