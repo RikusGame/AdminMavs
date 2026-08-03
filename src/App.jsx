@@ -13,20 +13,42 @@ import GestionDocumentos from "./pages/GestionDocumentos";
 import { PerfilUsuario } from "./pages/PerfilUsuario";
 import { PerfilConductor } from "./pages/PerfilConductor";
 import { QRManager } from "./components/QRManager";
+import { SolicitudesRecarga } from "./components/SolicitudesRecarga";
 import { EnConstruccion } from "./pages/EnConstruccion";
 import { Servicios } from "./pages/Servicios";
+import { Administradores } from "./pages/Administradores";
+import { Empresas } from "./pages/Empresas";
+import { MapaConductores } from "./pages/MapaConductores";
+import { Notificaciones } from "./pages/Notificaciones";
+import { PreguntasFrecuentes } from "./pages/PreguntasFrecuentes";
+import { ReglasConductores } from "./pages/ReglasConductores";
 import ViajesSection from "./pages/viajes_section";
-import { isCurrentUserAdmin } from "./utils/adminValidator";
+import { isCurrentUserAdmin, obtenerAccesoAdmin } from "./utils/adminValidator";
+import { IDS_SECCIONES } from "./config/seccionesAdmin";
 import { UnauthorizedAccess } from "./pages/UnauthorizedAccess";
 
 export default function App() {
-  const [activeSection, setActiveSection] = useState("dashboard");
+  const [activeSection, setActiveSection] = useState(
+    () => localStorage.getItem("adminActiveSection") || "dashboard"
+  );
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [checkingPermissions, setCheckingPermissions] = useState(false);
   const [selectedUsuarioId, setSelectedUsuarioId] = useState(null);
   const [selectedConductorId, setSelectedConductorId] = useState(null);
+  const [menuExpanded, setMenuExpanded] = useState(false);
+  const [acceso, setAcceso] = useState(null); // {permisos:'all'|[ids], esSuper}
+
+  // ¿El admin actual puede ver esta sección?
+  // FAIL-CLOSED: mientras `acceso` no cargó, NO conceder (antes devolvía true
+  // "mientras carga"). El render de contenido ya está detrás del loader
+  // (loading || checkingPermissions), así que esto solo cierra el hueco. (Tarjeta [190])
+  const puede = (id) => {
+    if (!acceso) return false;
+    if (acceso.permisos === "all") return true;
+    return Array.isArray(acceso.permisos) && acceso.permisos.includes(id);
+  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -38,27 +60,68 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (user && !checkingPermissions) {
-      setCheckingPermissions(true);
+    let cancelled = false;
 
-      isCurrentUserAdmin()
-        .then((result) => {
-          setIsAdmin(result);
-        })
-        .catch((error) => {
-          console.error("Error verificando permisos de admin:", error);
-          setIsAdmin(false);
-        })
-        .finally(() => {
-          setCheckingPermissions(false);
-        });
+    if (!user) {
+      setIsAdmin(false);
+      setCheckingPermissions(false);
+      return;
     }
-  }, [user, checkingPermissions]);
+
+    setCheckingPermissions(true);
+    isCurrentUserAdmin()
+      .then((result) => {
+        if (!cancelled) setIsAdmin(result);
+      })
+      .catch((error) => {
+        console.error("Error verificando permisos de admin:", error);
+        if (!cancelled) setIsAdmin(false);
+      })
+      .finally(() => {
+        if (!cancelled) setCheckingPermissions(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [user]);
 
   useEffect(() => {
     setSelectedUsuarioId(null);
     setSelectedConductorId(null);
+    // Recordar la sección actual para mantenerla al refrescar la página.
+    try {
+      localStorage.setItem("adminActiveSection", activeSection);
+    } catch (_) {
+      /* noop */
+    }
   }, [activeSection]);
+
+  // Cargar el acceso (permisos por sección) del admin actual.
+  useEffect(() => {
+    if (!isAdmin) {
+      setAcceso(null);
+      return;
+    }
+    let cancel = false;
+    obtenerAccesoAdmin().then((a) => {
+      if (!cancel) setAcceso(a);
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [isAdmin]);
+
+  // Si la sección guardada no está permitida, ir a la primera permitida.
+  useEffect(() => {
+    if (!acceso || acceso.permisos === "all") return;
+    if (!acceso.permisos.includes(activeSection)) {
+      const primera =
+        IDS_SECCIONES.find((id) => acceso.permisos.includes(id)) || "dashboard";
+      setActiveSection(primera);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [acceso]);
 
   if (loading || checkingPermissions) {
     return (
@@ -95,6 +158,14 @@ export default function App() {
       );
     }
 
+    if (acceso && acceso.permisos !== "all" && !puede(activeSection)) {
+      return (
+        <div className="p-8 text-gray-500">
+          No tenés acceso a esta sección.
+        </div>
+      );
+    }
+
     switch (activeSection) {
       case "dashboard":
         return <Dashboard />;
@@ -121,11 +192,35 @@ export default function App() {
         return <Banners />;
 
       case "qr-recarga":
-        return <QRManager />;
+        // QR de cobro + bandeja de comprobantes que los usuarios envían
+        // desde la app (solicitudesRecarga). Antes la bandeja no existía y
+        // las recargas enviadas quedaban pendientes sin que nadie las viera.
+        return (
+          <div className="p-6 space-y-6">
+            <SolicitudesRecarga />
+            <QRManager />
+          </div>
+        );
+
+      case "administradores":
+        return <Administradores />;
+
+      case "empresas":
+        return <Empresas />;
+
+      case "mapa-conductoras":
+        return <MapaConductores />;
+
+      case "notificaciones":
+        return <Notificaciones />;
+
+      case "preguntas-frecuentes":
+        return <PreguntasFrecuentes />;
+
+      case "reglas":
+        return <ReglasConductores />;
 
       case "plan-suscripcion":
-      case "preguntas-frecuentes":
-      case "reglas":
         return <EnConstruccion />;
 
       default:
@@ -138,9 +233,16 @@ export default function App() {
       <Sidebar
         activeSection={activeSection}
         setActiveSection={setActiveSection}
+        isExpanded={menuExpanded}
+        setIsExpanded={setMenuExpanded}
+        puede={puede}
       />
-      <div className="w-16" />
-      <main className="flex-1 overflow-auto">{renderContent()}</main>
+      <div
+        className={`shrink-0 transition-all duration-300 ease-in-out ${
+          menuExpanded ? "w-[260px]" : "w-16"
+        }`}
+      />
+      <main className="flex-1 overflow-auto min-w-0">{renderContent()}</main>
     </div>
   );
 }
