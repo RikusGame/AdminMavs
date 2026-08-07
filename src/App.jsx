@@ -38,7 +38,8 @@ export default function App() {
   const [selectedUsuarioId, setSelectedUsuarioId] = useState(null);
   const [selectedConductorId, setSelectedConductorId] = useState(null);
   const [menuExpanded, setMenuExpanded] = useState(false);
-  const [acceso, setAcceso] = useState(null); // {permisos:'all'|[ids], esSuper}
+  const [acceso, setAcceso] = useState(null); // {permisos:'all'|[ids], esSuper, error?}
+  const [accesoReload, setAccesoReload] = useState(0); // trigger de reintento
 
   // ¿El admin actual puede ver esta sección?
   // FAIL-CLOSED: mientras `acceso` no cargó, NO conceder (antes devolvía true
@@ -110,7 +111,7 @@ export default function App() {
     return () => {
       cancel = true;
     };
-  }, [isAdmin]);
+  }, [isAdmin, accesoReload]);
 
   // Si la sección guardada no está permitida, ir a la primera permitida.
   useEffect(() => {
@@ -155,6 +156,27 @@ export default function App() {
           conductorId={selectedConductorId}
           onBack={() => setSelectedConductorId(null)}
         />
+      );
+    }
+
+    // Error al verificar permisos (red / timeout / regla que deniega la
+    // lectura): obtenerAccesoAdmin devuelve error:true. Se muestra distinto de
+    // "no tenés permisos" para no confundir un fallo con una restricción, con
+    // botón de reintento. (Tarjeta [294])
+    if (acceso && acceso.error) {
+      return (
+        <div className="p-8 text-center text-gray-600">
+          <p className="mb-4">
+            No pudimos verificar tus permisos. Revisá tu conexión y volvé a
+            cargar.
+          </p>
+          <button
+            onClick={() => setAccesoReload((n) => n + 1)}
+            className="px-4 py-2 rounded-lg bg-green-600 text-white font-semibold hover:bg-green-700"
+          >
+            Reintentar
+          </button>
+        </div>
       );
     }
 
