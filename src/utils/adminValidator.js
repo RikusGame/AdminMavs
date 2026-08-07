@@ -103,23 +103,36 @@ export async function isCurrentUserAdmin() {
       return true;
     }
 
-    // Custom claims del TOKEN (mecanismo robusto). Antes se descartaba el
-    // resultado y se leía `currentUser.customClaims`, propiedad que NO existe
-    // en el SDK cliente → la rama nunca se tomaba (era seguridad decorativa).
-    // Los claims se leen en IdTokenResult.claims. (Tarjeta [195])
-    // El claim `admin`/`superadmin` lo setea crearAdmin en el backend.
+    // Custom claim del TOKEN. Es la vía robusta para las REGLAS de Firestore
+    // (ver [185]), pero para el gate del panel NO alcanza por sí solo: el
+    // token sigue siendo válido hasta ~1h y el claim no se limpia en el mismo
+    // instante en que se desactiva a una admin. Por eso el claim NO hace
+    // short-circuit: SIEMPRE se revalida `activo` contra Firestore.
+    // (Regresión detectada en QA de [195]: una admin con claim + activo:false
+    // volvía a entrar al panel. El claim se lee en IdTokenResult.claims, no en
+    // currentUser.customClaims —que no existe en el SDK cliente—.)
     const tokenResult = await currentUser.getIdTokenResult(true);
-    if (
+    const tieneClaimAdmin =
       tokenResult.claims.admin === true ||
-      tokenResult.claims.superadmin === true
-    ) {
-      return true;
+      tokenResult.claims.superadmin === true;
+
+    // El doc de `administradores` es la fuente de verdad del gate: getUserRole
+    // devuelve "user" si activo===false, aunque el token traiga el claim.
+    const role = await getUserRole(currentUser.uid);
+    const esAdminPorDoc = ROLES_ADMIN.includes(role);
+
+    if (tieneClaimAdmin && !esAdminPorDoc) {
+      // Token con claim de admin pero el doc no habilita (desactivada, borrada
+      // o error de lectura). No se concede: manda el doc. Queda pendiente que
+      // el backend limpie el claim al desactivar (trigger sincronizarClaimAdmin
+      // en functions-email, ver [195]); mientras tanto, este gate ya bloquea.
+      console.warn(
+        "isCurrentUserAdmin: token trae claim de admin pero el doc no habilita " +
+          "(activo:false / inexistente). Acceso denegado.",
+      );
     }
 
-    // Fallback: doc en `administradores`. Acepta cualquier rol válido, no
-    // solo "admin" (un doc con rol "superadmin" quedaba bloqueado). (Tarjeta [193])
-    const role = await getUserRole(currentUser.uid);
-    return ROLES_ADMIN.includes(role);
+    return esAdminPorDoc;
   } catch (error) {
     console.error("Error al verificar si es admin:", error);
     return false;
