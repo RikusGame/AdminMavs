@@ -7,7 +7,8 @@ import { collection, onSnapshot, query, doc, updateDoc, deleteDoc } from "fireba
 import EditUsuarioModal from "../modal/EditUsuarioModal";
 import DeleteAlert from "../components/DeleteAlert";
 import { formatFecha } from "../utils/fechas";
-import { exportarUsuariosAExcel } from "../utils/exportarExcel";
+// exportarUsuariosAExcel se importa on-demand (arrastra xlsx, ~95kB gzip) para
+// que no viaje en la carga inicial del panel. (Tarjeta [224])
 
 export function Usuarios({ onSelectUsuario }) {
   const [searchTerm, setSearchTerm] = useState('');
@@ -234,7 +235,12 @@ export function Usuarios({ onSelectUsuario }) {
       <div className="bg-white rounded-lg p-4 shadow-sm mb-4">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4">
           <button
-            onClick={() => exportarUsuariosAExcel(filteredUsuarios)}
+            onClick={async () => {
+              const { exportarUsuariosAExcel } = await import(
+                "../utils/exportarExcel"
+              );
+              exportarUsuariosAExcel(filteredUsuarios);
+            }}
             disabled={filteredUsuarios.length === 0}
             className="inline-flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
             title="Descargar la lista en Excel"

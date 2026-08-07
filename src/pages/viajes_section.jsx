@@ -7,9 +7,14 @@ import {
   onSnapshot,
   doc,
   getDoc,
+  updateDoc,
+  serverTimestamp,
 } from "firebase/firestore";
 import { db } from "../config/firebase";
-import { MapPin, User, CreditCard, Mail } from "lucide-react";
+import { MapPin, User, CreditCard, Mail, FileSpreadsheet, Ban } from "lucide-react";
+import { getAuth } from "firebase/auth";
+// exportarViajesAExcel se importa on-demand (arrastra xlsx) para que no viaje
+// en la carga inicial del panel. (Tarjeta [224])
 
 export default function ViajesSection() {
   const [viajes, setViajes] = useState([]);
@@ -86,6 +91,7 @@ export default function ViajesSection() {
             return {
               id: docSnap.id,
               ordenId: data.ordenId || docSnap.id,
+              rutaDoc: docSnap.ref.path,
               uidTaxista,
               conductorNombre: nombreTaxistaDesdeOrden,
               uidPasajero: data.uidPasajero || data.idPasajero || "N/A",
@@ -291,14 +297,72 @@ export default function ViajesSection() {
     (v) => (v.estado || "").toLowerCase() !== "cancelado"
   ).length;
 
+  // Cancelar un viaje de oficio (para cerrar los que quedan colgados). Marca
+  // la orden como 'cancelada' con motivo; la app del pasajero/conductor lo
+  // refleja. Sirve para ordenes y ordenesProgramados (usa rutaDoc real).
+  const [cancelandoId, setCancelandoId] = useState(null);
+  const cancelarViaje = async (viaje) => {
+    if (!viaje?.rutaDoc) {
+      alert("No se pudo ubicar el viaje para cancelarlo.");
+      return;
+    }
+    const motivo = window.prompt(
+      `Cancelar el viaje de ${viaje.conductorNombre || "sin conductor"} ` +
+        `(estado actual: ${viaje.estado}).\n\nEscribí el motivo de la cancelación:`,
+      "Cancelado por administración"
+    );
+    if (motivo === null) return; // el admin cerró el prompt
+    setCancelandoId(viaje.id);
+    try {
+      const adminEmail = getAuth().currentUser?.email || "admin";
+      await updateDoc(doc(db, viaje.rutaDoc), {
+        estado: "cancelado",
+        canceladoPor: "admin",
+        canceladoPorEmail: adminEmail,
+        motivoCancelacion:
+          (motivo || "").trim() || "Cancelado por administración",
+        canceladoAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      });
+    } catch (e) {
+      console.error("Error cancelando viaje:", e);
+      alert("No se pudo cancelar el viaje: " + e.message);
+    } finally {
+      setCancelandoId(null);
+    }
+  };
+
   return (
     <div className="p-6 bg-gray-100 min-h-screen">
       <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-        <div className="border-b bg-white px-6 py-5">
-          <h1 className="text-2xl font-bold text-gray-800">Viajes</h1>
-          <p className="text-sm text-gray-500 mt-1">
-            Historial agrupado por conductor
-          </p>
+        <div className="border-b bg-white px-6 py-5 flex items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-800">Viajes</h1>
+            <p className="text-sm text-gray-500 mt-1">
+              Historial agrupado por conductor
+            </p>
+          </div>
+          <button
+            onClick={async () => {
+              const { exportarViajesAExcel } = await import(
+                "../utils/exportarExcel"
+              );
+              exportarViajesAExcel(viajesFiltrados);
+            }}
+            disabled={loadingViajes || viajesFiltrados.length === 0}
+            title={
+              viajesFiltrados.length === 0
+                ? "No hay viajes para exportar"
+                : "Exportar a Excel"
+            }
+            className="shrink-0 inline-flex items-center gap-2 rounded-lg bg-gradient-to-r from-green-600 to-emerald-600 px-4 py-2.5 text-sm font-semibold text-white shadow-md shadow-green-600/30 hover:from-green-700 hover:to-emerald-700 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <FileSpreadsheet className="w-4 h-4" />
+            Exportar a Excel
+            <span className="bg-white/20 rounded-full px-2 py-0.5 text-xs">
+              {viajesFiltrados.length}
+            </span>
+          </button>
         </div>
 
         <div className="p-6">
@@ -583,6 +647,21 @@ export default function ViajesSection() {
                               >
                                 {viaje.estado}
                               </span>
+                              {!["completado", "cancelado"].includes(
+                                (viaje.estado || "").toLowerCase()
+                              ) && (
+                                <button
+                                  onClick={() => cancelarViaje(viaje)}
+                                  disabled={cancelandoId === viaje.id}
+                                  className="mt-1 mx-auto flex items-center gap-1 text-[11px] font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+                                  title="Cancelar este viaje"
+                                >
+                                  <Ban className="w-3 h-3" />
+                                  {cancelandoId === viaje.id
+                                    ? "Cancelando…"
+                                    : "Cancelar"}
+                                </button>
+                              )}
                             </td>
 
                             <td className="p-3">
