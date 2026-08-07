@@ -1,0 +1,23 @@
+# CI del panel admin (React + Vite). (Tarjeta [208])
+# lint falla solo por errores (eslint no falla por warnings salvo --max-warnings);
+# hoy quedan 40 warnings y 0 errores como piso.
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  panel:
+    name: Panel (lint + build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Build
+        run: npm run build

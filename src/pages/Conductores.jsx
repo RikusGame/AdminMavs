@@ -26,6 +26,13 @@ export function Conductores({ onSelectConductor }) {
   const [conductorToEdit, setConductorToEdit] = useState(null);
   const [conductorToDelete, setConductorToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  // Estado del flujo "Aprobar todos": los setters (aprobarTodos /
+  // handleApproveAllClick) se usaban sin declarar el estado → ReferenceError
+  // (no-undef, lo cazó el linter de [208], misma clase que [300]). NOTA: esos
+  // handlers todavía no están enganchados a ningún botón del JSX (feature a
+  // medio wirear — candidato a limpieza/completar en [227]).
+  const [isApproving, setIsApproving] = useState(false);
+  const [isApproveAllModalOpen, setIsApproveAllModalOpen] = useState(false);
 
   useEffect(() => {
     setLoading(true);
