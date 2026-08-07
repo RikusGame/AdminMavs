@@ -367,7 +367,15 @@ export function Conductores({ onSelectConductor }) {
       <div className="bg-white rounded-lg p-4 shadow-sm mb-4">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4">
           <button
-            onClick={() => exportarConductoresAExcel(filteredConductores)}
+            onClick={async () => {
+              // Import on-demand (mismo patrón que Usuarios/viajes): NO estático,
+              // porque metería xlsx en la carga inicial (rompe [224]). Antes la
+              // función ni se importaba → ReferenceError al click. (Tarjeta [300])
+              const { exportarConductoresAExcel } = await import(
+                "../utils/exportarExcel"
+              );
+              exportarConductoresAExcel(filteredConductores);
+            }}
             disabled={filteredConductores.length === 0}
             className="inline-flex items-center gap-2 rounded-lg bg-green-600 hover:bg-green-700 text-white text-sm font-semibold px-4 py-2 transition disabled:opacity-50 disabled:cursor-not-allowed"
             title="Descargar la lista en Excel"
