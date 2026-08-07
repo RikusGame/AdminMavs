@@ -33,8 +33,9 @@ const Banners = () => {
                 // Subir imagen a Storage
                 await uploadBytes(storageRef, selectedFile);
                 
-                // Obtener URL de descarga completa
-                const { getDownloadURL } = await import('firebase/storage');
+                // Obtener URL de descarga completa (getDownloadURL ya está
+                // importado estático arriba; el import dinámico generaba el
+                // warning de "mixed import" que impedía el chunking). Card [224]
                 const downloadURL = await getDownloadURL(storageRef);
                 
                 dataToUpdate.imageUrl = downloadURL;

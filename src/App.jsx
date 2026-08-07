@@ -1,8 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "./config/firebase";
 import { Sidebar } from "./ui/Sidebar";
-import { Dashboard } from "./pages/Dashboard";
 import { Usuarios } from "./pages/Usuarios";
 import { Conductores } from "./pages/Conductores";
 import { Login } from "./pages/Login";
@@ -18,7 +17,6 @@ import { EnConstruccion } from "./pages/EnConstruccion";
 import { Servicios } from "./pages/Servicios";
 import { Administradores } from "./pages/Administradores";
 import { Empresas } from "./pages/Empresas";
-import { MapaConductores } from "./pages/MapaConductores";
 import { Notificaciones } from "./pages/Notificaciones";
 import { PreguntasFrecuentes } from "./pages/PreguntasFrecuentes";
 import { ReglasConductores } from "./pages/ReglasConductores";
@@ -26,6 +24,15 @@ import ViajesSection from "./pages/viajes_section";
 import { isCurrentUserAdmin, obtenerAccesoAdmin } from "./utils/adminValidator";
 import { IDS_SECCIONES } from "./config/seccionesAdmin";
 import { UnauthorizedAccess } from "./pages/UnauthorizedAccess";
+
+// Secciones pesadas cargadas on-demand para achicar el bundle inicial:
+// MapaConductores arrastra mapbox-gl y Dashboard recharts. (Tarjeta [224])
+const MapaConductores = lazy(() =>
+  import("./pages/MapaConductores").then((m) => ({ default: m.MapaConductores }))
+);
+const Dashboard = lazy(() =>
+  import("./pages/Dashboard").then((m) => ({ default: m.Dashboard }))
+);
 
 export default function App() {
   const [activeSection, setActiveSection] = useState(
@@ -264,7 +271,13 @@ export default function App() {
           menuExpanded ? "w-[260px]" : "w-16"
         }`}
       />
-      <main className="flex-1 overflow-auto min-w-0">{renderContent()}</main>
+      <main className="flex-1 overflow-auto min-w-0">
+        <Suspense
+          fallback={<div className="p-8 text-gray-500">Cargando…</div>}
+        >
+          {renderContent()}
+        </Suspense>
+      </main>
     </div>
   );
 }
