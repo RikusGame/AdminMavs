@@ -10,10 +10,7 @@ import {
   doc,
   setDoc,
   serverTimestamp,
-  collection,
-  query,
-  where,
-  getDocs,
+  getDoc,
 } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { db } from "../config/firebase";
@@ -86,23 +83,66 @@ export function RegistrarConductorModal({ onClose }) {
   // despacho: sin esto la conductora recibe TODAS las solicitudes sin filtro.
   const [servicios, setServicios] = useState([]);
   const [servicioSel, setServicioSel] = useState("");
+  const [cargandoServicios, setCargandoServicios] = useState(false);
 
+  // Los servicios viven en empresas/mujeresalvolante/tarifas/{departamento}:
+  // un documento por departamento, con una clave por servicio. Es donde los
+  // escribe el panel (CreateServicioModal) y de donde los lee la sección
+  // Servicios.
+  //
+  // Antes esto leía de la colección `servicios`, que está vacía, así que el
+  // dropdown salía sin opciones y no se podía dar de alta a una conductora
+  // (tarjeta [744]). Como el catálogo depende del departamento, se recarga
+  // cada vez que cambia.
   useEffect(() => {
+    if (!departamento) {
+      setServicios([]);
+      setServicioSel("");
+      return;
+    }
+
+    let cancelado = false;
     (async () => {
+      setCargandoServicios(true);
       try {
-        const snap = await getDocs(
-          query(collection(db, "servicios"), where("activo", "==", true))
+        const snap = await getDoc(
+          doc(db, "empresas", "mujeresalvolante", "tarifas", departamento)
         );
-        const lista = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+        const data = snap.exists() ? snap.data() : {};
+
+        // Cada clave del doc es un servicio; el resto de los campos no son
+        // objetos y se descartan solos.
+        const lista = Object.entries(data)
+          .filter(
+            ([, v]) => typeof v === "object" && v !== null && v.activo === true
+          )
+          .map(([clave, v], i) => ({
+            id: clave,
+            nombre: v.servicio || clave,
+            orden: v.orden === undefined || v.orden === null ? i : Number(v.orden),
+          }))
+          .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
+
+        if (cancelado) return;
         setServicios(lista);
-        if (lista.length === 1) setServicioSel(lista[0].nombre || "");
+        // Si el servicio ya elegido no existe en el departamento nuevo, se
+        // suelta para no guardar uno que ahí no se presta.
+        setServicioSel((prev) => {
+          if (lista.some((s) => s.nombre === prev)) return prev;
+          return lista.length === 1 ? lista[0].nombre : "";
+        });
       } catch (e) {
+        if (!cancelado) setServicios([]);
         console.error("Error cargando servicios:", e);
+      } finally {
+        if (!cancelado) setCargandoServicios(false);
       }
     })();
-  }, []);
+
+    return () => {
+      cancelado = true;
+    };
+  }, [departamento]);
 
   const [habilitado, setHabilitado] = useState(true);
 
@@ -430,14 +470,34 @@ export function RegistrarConductorModal({ onClose }) {
                       className={inputCls}
                       value={servicioSel}
                       onChange={(e) => setServicioSel(e.target.value)}
+                      disabled={!departamento || cargandoServicios}
                     >
-                      <option value="">Selecciona...</option>
+                      <option value="">
+                        {!departamento
+                          ? "Elegí primero el departamento"
+                          : cargandoServicios
+                            ? "Cargando servicios..."
+                            : servicios.length === 0
+                              ? `Sin servicios activos en ${departamento}`
+                              : "Selecciona..."}
+                      </option>
                       {servicios.map((s) => (
                         <option key={s.id} value={s.nombre}>
                           {s.nombre}
                         </option>
                       ))}
                     </select>
+                    {/* Si el departamento no tiene ningún servicio activo el
+                        dropdown queda vacío igual: decimos por qué y dónde se
+                        arregla, en vez de dejarlo mudo (tarjeta [744]). */}
+                    {departamento &&
+                      !cargandoServicios &&
+                      servicios.length === 0 && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          No hay servicios activos en {departamento}. Activalos
+                          en la sección Servicios.
+                        </p>
+                      )}
                   </Field>
                 </div>
               </section>
