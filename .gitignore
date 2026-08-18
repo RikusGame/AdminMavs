@@ -26,6 +26,11 @@ dist-ssr
 # Vite / build output
 dist/
 build/
+# Copia de dist/ que genera `npm run build:hostinger` para subir al hosting.
+# Va ignorada por lo mismo que dist/: es salida de build, y ademas lleva
+# embebido el valor de VITE_MAPBOX_TOKEN (import.meta.env se resuelve en
+# build) y este repo es publico.
+hostinger-upload/
 
 # Env
 .env
