@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../config/firebase';
-import { collection, query, onSnapshot, doc, updateDoc, getDoc } from 'firebase/firestore';
-import { FileText, Search, Eye, Loader2, Users, Truck } from 'lucide-react';
+import { collection, query, onSnapshot, doc, updateDoc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { FileText, Search, Eye, Loader2, Users, Truck, ChevronDown, XCircle } from 'lucide-react';
 import { cargarConfiguracion } from '../components/DocumentConfigManager';
 import EnableAlert from '../components/EnableAlert';
 
@@ -130,6 +130,9 @@ const Documentos = () => {
   const [modalTitle, setModalTitle] = useState('');
   const [updating, setUpdating] = useState(new Set());
   const [pauseListener, setPauseListener] = useState(false);
+  const [rechazoModal, setRechazoModal] = useState(null); // {driverId, docKey, docNombre}
+  const [motivoRechazo, setMotivoRechazo] = useState('');
+  const [rechazando, setRechazando] = useState(false);
   const [documentMap, setDocumentMap] = useState(DOCUMENT_MAP_FALLBACK);
   const [filterApproval, setFilterApproval] = useState('Todos');
   const [isEnableModalOpen, setIsEnableModalOpen] = useState(false);
@@ -138,6 +141,16 @@ const Documentos = () => {
   const [isEnableAllModalOpen, setIsEnableAllModalOpen] = useState(false);
   const [isEnablingAll, setIsEnablingAll] = useState(false);
   const scrollPositionRef = useRef(null);
+  const [expandedDrivers, setExpandedDrivers] = useState(new Set());
+
+  const toggleExpand = (uid) => {
+    setExpandedDrivers((prev) => {
+      const next = new Set(prev);
+      if (next.has(uid)) next.delete(uid);
+      else next.add(uid);
+      return next;
+    });
+  };
 
   // Restore scroll position after React renders
   useEffect(() => {
@@ -186,7 +199,7 @@ const Documentos = () => {
     loadConfig();
   }, []);
 
-  const toggleDocumentVerification = async (driverId, docKey, currentState, savedScrollPosition) => {
+  const toggleDocumentVerification = async (driverId, docKey, currentState, savedScrollPosition, docNombre = '') => {
     const updateKey = `${driverId}-${docKey}`;
     console.log('🔵 [TOGGLE DOC] Iniciando:', { driverId, docKey, currentState, savedScrollPosition });
 
@@ -249,6 +262,18 @@ const Documentos = () => {
         'documentosVehiculo.habilitado': newHabilitadoState,
       };
 
+      // Al APROBAR, registramos el evento de revisión → dispara la push al
+      // conductor (CF onTaxistaRevisionDoc) y limpia un posible rechazo previo.
+      if (newDocState) {
+        updates[`documentosVehiculoEstado.${docKey}.estado`] = 'aprobado';
+        updates[`documentosVehiculoEstado.${docKey}.motivo`] = null;
+        updates['ultimaRevisionDoc.fecha'] = serverTimestamp();
+        updates['ultimaRevisionDoc.tipo'] = 'aprobado';
+        updates['ultimaRevisionDoc.docId'] = docKey;
+        updates['ultimaRevisionDoc.docNombre'] = docNombre || docKey;
+        updates['ultimaRevisionDoc.motivo'] = null;
+      }
+
       console.log('📤 [FIREBASE] Enviando...');
       await updateDoc(doc(db, 'taxistas', driverId), updates);
       console.log('✅ [FIREBASE] Completado');
@@ -281,6 +306,49 @@ const Documentos = () => {
         console.log('▶️ [LISTENER] REACTIVADO');
         console.log('📍 [SCROLL] Posición:', window.scrollY);
       }, 100);
+    }
+  };
+
+  const rechazarDocumento = async (driverId, docKey, docNombre, motivo) => {
+    setRechazando(true);
+    try {
+      const capitalizedKey = docKey.charAt(0).toUpperCase() + docKey.slice(1);
+      const verificadoKey = `verificado${capitalizedKey}`;
+      await updateDoc(doc(db, 'taxistas', driverId), {
+        [`documentosVehiculo.${verificadoKey}`]: false,
+        'documentosVehiculo.habilitado': false,
+        [`documentosVehiculoEstado.${docKey}.estado`]: 'rechazado',
+        [`documentosVehiculoEstado.${docKey}.motivo`]: motivo,
+        [`documentosVehiculoEstado.${docKey}.fecha`]: serverTimestamp(),
+        // Evento de revisión → dispara la push al conductor (CF).
+        'ultimaRevisionDoc.fecha': serverTimestamp(),
+        'ultimaRevisionDoc.tipo': 'rechazado',
+        'ultimaRevisionDoc.docId': docKey,
+        'ultimaRevisionDoc.docNombre': docNombre || docKey,
+        'ultimaRevisionDoc.motivo': motivo,
+      });
+
+      // Reflejo local: el documento queda no verificado.
+      setDrivers((prev) =>
+        prev.map((driver) =>
+          driver.uid === driverId
+            ? {
+                ...driver,
+                documents: driver.documents.map((d) =>
+                  d.id === docKey ? { ...d, isVerified: false } : d
+                ),
+                habilitado: false,
+              }
+            : driver
+        )
+      );
+      setRechazoModal(null);
+      setMotivoRechazo('');
+    } catch (e) {
+      console.error('Error al rechazar documento:', e);
+      alert('No se pudo rechazar: ' + e.message);
+    } finally {
+      setRechazando(false);
     }
   };
 
@@ -616,6 +684,22 @@ const Documentos = () => {
               </button>
             )}
 
+            {!isLocation && (
+              <button
+                onClick={() =>
+                  setRechazoModal({
+                    driverId,
+                    docKey: docItem.id,
+                    docNombre: docItem.name,
+                  })
+                }
+                className="flex items-center gap-2 px-3 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition duration-150 text-sm font-medium shadow-md"
+                title="Rechazar y pedir reemplazo"
+              >
+                <XCircle className="w-4 h-4" /> Rechazar
+              </button>
+            )}
+
             {isLocation && (
               <span
                 className={`inline-block px-2 py-1 rounded-full text-xs font-medium ${
@@ -634,7 +718,7 @@ const Documentos = () => {
                 const currentScroll = window.scrollY;
                 console.log('🎯 [CLICK] Scroll capturado en onClick:', currentScroll);
                 e.preventDefault();
-                toggleDocumentVerification(driverId, docItem.id, docItem.isVerified, currentScroll);
+                toggleDocumentVerification(driverId, docItem.id, docItem.isVerified, currentScroll, docItem.name);
               }}
             >
               <input
@@ -653,10 +737,24 @@ const Documentos = () => {
     );
   };
 
-  const DriverSection = ({ driver }) => (
+  const DriverSection = ({ driver }) => {
+    const isExpanded = expandedDrivers.has(driver.uid);
+    const totalDocs = driver.documents.length;
+    const aprobadosDocs = driver.documents.filter((d) => d.isVerified).length;
+
+    return (
     <div className="bg-white rounded-lg shadow-sm overflow-hidden border border-gray-100">
-      <div className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center gap-4 flex-wrap">
+      <div
+        className="bg-gray-50 p-4 border-b border-gray-100 flex justify-between items-center gap-4 flex-wrap cursor-pointer hover:bg-gray-100 transition-colors"
+        onClick={() => toggleExpand(driver.uid)}
+        title={isExpanded ? 'Ocultar documentos' : 'Ver documentos'}
+      >
         <div className="flex items-center gap-4 flex-wrap">
+          <ChevronDown
+            className={`w-5 h-5 text-gray-400 shrink-0 transition-transform duration-200 ${
+              isExpanded ? 'rotate-180' : ''
+            }`}
+          />
           <div>
             <h2 className="text-lg font-semibold text-gray-800 flex items-center">
               <Users className="w-5 h-5 mr-2 text-[#a8d96f]" />
@@ -676,8 +774,8 @@ const Documentos = () => {
             <label
               className="relative inline-flex items-center cursor-pointer"
               onClick={(e) => {
+                e.stopPropagation();
                 const currentScroll = window.scrollY;
-                console.log('🎯 [CLICK DRIVER] Scroll capturado:', currentScroll);
                 e.preventDefault();
                 toggleDriverEnabled(driver.uid, driver.habilitado, currentScroll);
               }}
@@ -691,9 +789,22 @@ const Documentos = () => {
               <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-[#a8d96f]/30 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#a8d96f]"></div>
             </label>
           </div>
+
+          <span
+            className={`text-xs font-semibold px-2.5 py-1 rounded-full ${
+              totalDocs > 0 && aprobadosDocs === totalDocs
+                ? 'bg-green-100 text-green-700'
+                : 'bg-amber-100 text-amber-700'
+            }`}
+          >
+            {aprobadosDocs}/{totalDocs} aprobados
+          </span>
         </div>
 
-        <div className="text-left p-1 bg-white rounded-lg border min-w-[220px] sm:w-52 md:w-80 lg:w-96">
+        <div
+          className="text-left p-1 bg-white rounded-lg border min-w-[220px] sm:w-52 md:w-80 lg:w-96"
+          onClick={(e) => e.stopPropagation()}
+        >
           <p className="text-sm font-semibold text-gray-700 flex items-center mb-1">
             <Truck className="w-4 h-4 mr-1" /> {driver.vehiculo.marca || 'N/A'}
           </p>
@@ -724,24 +835,27 @@ const Documentos = () => {
         </div>
       </div>
 
-      <div className="p-4 space-y-3">
-        {driver.documents.length > 0 ? (
-          driver.documents.map((docItem) => (
-            <DocumentCard
-              key={docItem.id}
-              doc={docItem}
-              onOpen={openDocumentModal}
-              driverId={driver.uid}
-            />
-          ))
-        ) : (
-          <p className="text-center text-gray-500 italic p-4">
-            No hay documentos para mostrar.
-          </p>
-        )}
-      </div>
+      {isExpanded && (
+        <div className="p-4 space-y-3">
+          {driver.documents.length > 0 ? (
+            driver.documents.map((docItem) => (
+              <DocumentCard
+                key={docItem.id}
+                doc={docItem}
+                onOpen={openDocumentModal}
+                driverId={driver.uid}
+              />
+            ))
+          ) : (
+            <p className="text-center text-gray-500 italic p-4">
+              No hay documentos para mostrar.
+            </p>
+          )}
+        </div>
+      )}
     </div>
-  );
+    );
+  };
 
   const DocumentModal = ({ url, title, onClose }) => {
     if (!url) return null;
@@ -896,6 +1010,32 @@ const Documentos = () => {
             <option value="Todos">Mostrar: Todos</option>
             <option value="Pendientes">Mostrar: Pendientes</option>
           </select>
+
+          <button
+            type="button"
+            onClick={() => {
+              const allOpen =
+                filteredDrivers.length > 0 &&
+                filteredDrivers.every((d) => expandedDrivers.has(d.uid));
+              setExpandedDrivers(
+                allOpen ? new Set() : new Set(filteredDrivers.map((d) => d.uid))
+              );
+            }}
+            className="md:w-48 px-4 py-2 border border-gray-300 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-50 transition flex items-center justify-center gap-2"
+          >
+            <ChevronDown
+              className={`w-4 h-4 transition-transform ${
+                filteredDrivers.length > 0 &&
+                filteredDrivers.every((d) => expandedDrivers.has(d.uid))
+                  ? 'rotate-180'
+                  : ''
+              }`}
+            />
+            {filteredDrivers.length > 0 &&
+            filteredDrivers.every((d) => expandedDrivers.has(d.uid))
+              ? 'Colapsar todo'
+              : 'Expandir todo'}
+          </button>
         </div>
       </div>
 
@@ -920,6 +1060,63 @@ const Documentos = () => {
         title={modalTitle}
         onClose={() => setModalUrl(null)}
       />
+
+      {/* Modal: rechazar documento con motivo */}
+      {rechazoModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg shadow-xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold text-gray-800 mb-1 flex items-center gap-2">
+              <XCircle className="w-5 h-5 text-red-500" />
+              Rechazar documento
+            </h3>
+            <p className="text-sm text-gray-600 mb-4">
+              «{rechazoModal.docNombre}». El conductor recibirá una notificación
+              con el motivo y deberá volver a subirlo.
+            </p>
+            <label className="text-xs font-medium text-gray-600">
+              Motivo del rechazo
+            </label>
+            <textarea
+              autoFocus
+              value={motivoRechazo}
+              onChange={(e) => setMotivoRechazo(e.target.value)}
+              rows={3}
+              placeholder="Ej: La foto está borrosa / el documento está vencido / no se lee el número..."
+              className="w-full mt-1 px-3 py-2 border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-red-300 resize-y"
+            />
+            <div className="flex gap-3 justify-end mt-5">
+              <button
+                onClick={() => {
+                  setRechazoModal(null);
+                  setMotivoRechazo('');
+                }}
+                disabled={rechazando}
+                className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  if (!motivoRechazo.trim()) {
+                    alert('Escribí el motivo del rechazo.');
+                    return;
+                  }
+                  rechazarDocumento(
+                    rechazoModal.driverId,
+                    rechazoModal.docKey,
+                    rechazoModal.docNombre,
+                    motivoRechazo.trim()
+                  );
+                }}
+                disabled={rechazando}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 disabled:opacity-50 font-semibold"
+              >
+                {rechazando ? 'Rechazando...' : 'Rechazar y notificar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {isEnableModalOpen && driverToEnable && (
         <EnableAlert

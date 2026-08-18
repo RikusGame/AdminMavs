@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { db } from "../config/firebase";
 import { doc, getDoc, collection, query, orderBy, limit, getDocs } from "firebase/firestore";
 import { ArrowLeft, Mail, Phone, MapPin } from 'lucide-react';
+import { LogsCliente } from "../components/LogsCliente";
 
 export function PerfilUsuario({ usuarioId, onBack }) {
   const [usuario, setUsuario] = useState(null);
@@ -225,6 +226,9 @@ export function PerfilUsuario({ usuarioId, onBack }) {
           </div>
         </div>
       </div>
+
+      {/* Logs / Actividad del usuario */}
+      <LogsCliente uid={usuarioId} />
     </div>
   );
 }

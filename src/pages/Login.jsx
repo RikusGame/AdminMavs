@@ -8,10 +8,12 @@ import { Button } from "../ui/button";
 import { Card, CardContent } from "../ui/card";
 import { Label } from "../ui/label";
 import { Checkbox } from "../ui/checkbox";
+import { Eye, EyeOff } from "lucide-react";
 
 export function Login({ onLoginSuccess }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [mostrarPass, setMostrarPass] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -77,15 +79,29 @@ export function Login({ onLoginSuccess }) {
                     <Label htmlFor="password" className="text-gray-700 font-medium">
                       Contraseña
                     </Label>
-                    <Input
-                      id="password"
-                      type="password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      required
-                      className="mt-2 h-12 border-gray-300 focus:border-green-500 focus:ring-green-500 transition-all"
-                      placeholder="Ingresa tu contraseña"
-                    />
+                    <div className="relative">
+                      <Input
+                        id="password"
+                        type={mostrarPass ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        required
+                        className="mt-2 h-12 pr-12 border-gray-300 focus:border-green-500 focus:ring-green-500 transition-all"
+                        placeholder="Ingresa tu contraseña"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setMostrarPass((v) => !v)}
+                        className="absolute right-3 top-1/2 mt-1 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        title={mostrarPass ? "Ocultar contraseña" : "Mostrar contraseña"}
+                      >
+                        {mostrarPass ? (
+                          <EyeOff className="w-5 h-5" />
+                        ) : (
+                          <Eye className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
                   </div>
 
                   <div className="flex items-center">

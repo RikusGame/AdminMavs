@@ -1,9 +1,42 @@
 import { useState, useEffect } from 'react';
 import { db, storage } from "../config/firebase";
-import { doc, getDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, collectionGroup, where } from "firebase/firestore";
+import { doc, getDoc, getDocs, updateDoc, collection, query, orderBy, limit, onSnapshot, collectionGroup, where } from "firebase/firestore";
 import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { ArrowLeft, Mail, Phone, TrendingUp, TrendingDown, MapPin, DollarSign, Calendar, CreditCard, CheckCircle } from 'lucide-react';
 import { AgregarMontoModal } from "../modal/AgregarMontoModal";
+import { LogsCliente } from "../components/LogsCliente";
+import { MiniMapaUbicacion } from "../components/MiniMapaUbicacion";
+
+// Extrae la ubicación del domicilio de documentosVehiculo. El app la guarda
+// como string "Dirección @ lat,lng" (campo del mapa) o como objeto
+// {direccion, lat, lng}. Devuelve {direccion, lat, lng} o null.
+function extraerDomicilio(vehiculo = {}) {
+  const RE = /(-?\d+\.\d+)\s*,\s*(-?\d+\.\d+)/;
+  for (const [k, v] of Object.entries(vehiculo)) {
+    if (v && typeof v === "object" && (v.lat != null || v.direccion)) {
+      return {
+        direccion: v.direccion || "",
+        lat: v.lat ?? v.latitude ?? null,
+        lng: v.lng ?? v.longitude ?? null,
+      };
+    }
+    if (typeof v === "string" && v.includes("@")) {
+      const m = v.match(RE);
+      if (m) {
+        return { direccion: v.split("@")[0].trim(), lat: m[1], lng: m[2] };
+      }
+    }
+    if (/domicil|ubicac/i.test(k) && typeof v === "string" && v.trim()) {
+      const m = v.match(RE);
+      return {
+        direccion: m ? v.split("@")[0].trim() : v.trim(),
+        lat: m ? m[1] : null,
+        lng: m ? m[2] : null,
+      };
+    }
+  }
+  return null;
+}
 
 export function PerfilConductor({ conductorId, onBack }) {
   const [conductor, setConductor] = useState(null);
@@ -17,6 +50,46 @@ export function PerfilConductor({ conductorId, onBack }) {
   const [filtroViajes, setFiltroViajes] = useState('todos'); // todos, completado, cancelado
   const [paginaViajes, setPaginaViajes] = useState(1);
   const viajesPorPagina = 10;
+
+  // Servicio con el que trabaja (Taxi, Moto taxi...). El despacho filtra por
+  // este campo; el admin puede corregirlo desde acá.
+  const [serviciosApp, setServiciosApp] = useState([]);
+  const [servicioConductor, setServicioConductor] = useState("");
+  const [guardandoServicio, setGuardandoServicio] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const snap = await getDocs(
+          query(collection(db, "servicios"), where("activo", "==", true))
+        );
+        const lista = snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }))
+          .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+        setServiciosApp(lista);
+      } catch (e) {
+        console.error("Error cargando servicios:", e);
+      }
+    })();
+  }, []);
+
+  const cambiarServicio = async (nombre) => {
+    if (!conductorId) return;
+    const anterior = servicioConductor;
+    setServicioConductor(nombre);
+    setGuardandoServicio(true);
+    try {
+      await updateDoc(doc(db, "taxistas", conductorId), {
+        "documentosVehiculo.servicioSeleccionado": nombre,
+      });
+    } catch (e) {
+      console.error("Error guardando servicio:", e);
+      setServicioConductor(anterior);
+      alert("No se pudo guardar el servicio: " + (e.message || e));
+    } finally {
+      setGuardandoServicio(false);
+    }
+  };
 
   const handleMontoAdded = (nuevoSaldo) => {
     setConductor(prev => ({
@@ -91,8 +164,11 @@ export function PerfilConductor({ conductorId, onBack }) {
   fotoPerfilUrl: foto,
   habilitado: data.habilitado || vehiculo.habilitado || false,
   saldo: saldoActual,
+  servicioSeleccionado: vehiculo.servicioSeleccionado || "",
   viajes: data.viajes || 0,
   calificacion: data.calificacion || 0,
+  reglasAuto: data.reglasAuto || [],
+  domicilio: extraerDomicilio(vehiculo),
 
   vehiculo: {
     marca: vehiculo.marca || "N/A",
@@ -102,6 +178,7 @@ export function PerfilConductor({ conductorId, onBack }) {
     tipoVehiculo: vehiculo.tipoVehiculo || vehiculo.tipo || "N/A",
   },
 });
+          setServicioConductor(vehiculo.servicioSeleccionado || "");
         } else {
           console.error("❌ Conductor no encontrado");
         }
@@ -369,6 +446,43 @@ export function PerfilConductor({ conductorId, onBack }) {
     </p>
   )}
 </div>
+
+              {/* Servicio con el que trabaja (filtra el despacho de carreras) */}
+              <div className="border-t mt-4 pt-4">
+                <h3 className="font-bold text-gray-800 mb-2">Servicio</h3>
+                {!servicioConductor && (
+                  <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-2">
+                    ⚠️ Sin servicio asignado: recibe solicitudes de TODOS los
+                    servicios sin filtrar.
+                  </p>
+                )}
+                <div className="flex items-center gap-2">
+                  <select
+                    value={servicioConductor}
+                    onChange={(e) => cambiarServicio(e.target.value)}
+                    disabled={guardandoServicio || serviciosApp.length === 0}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none transition text-sm disabled:opacity-60"
+                  >
+                    <option value="">Sin servicio asignado</option>
+                    {serviciosApp.map((s) => (
+                      <option key={s.id} value={s.nombre}>
+                        {s.nombre}
+                      </option>
+                    ))}
+                    {servicioConductor &&
+                      !serviciosApp.some((s) => s.nombre === servicioConductor) && (
+                        <option value={servicioConductor}>
+                          {servicioConductor} (inactivo)
+                        </option>
+                      )}
+                  </select>
+                  {guardandoServicio && (
+                    <span className="text-xs text-gray-400 shrink-0">
+                      Guardando...
+                    </span>
+                  )}
+                </div>
+              </div>
 
 
             </div>
@@ -708,6 +822,73 @@ export function PerfilConductor({ conductorId, onBack }) {
           </div>
         </div>
       </div>
+
+      {/* Ubicación del domicilio (marcada en el mapa al registrarse) */}
+      <div className="bg-white rounded-lg shadow-sm p-4 mt-6">
+        <div className="flex items-center gap-2 mb-2">
+          <MapPin className="w-5 h-5 text-green-500 flex-shrink-0" />
+          <span className="text-sm font-semibold text-gray-700">
+            Ubicación del domicilio
+          </span>
+        </div>
+        {conductor?.domicilio ? (
+          <>
+            {conductor.domicilio.direccion && (
+              <p className="text-sm text-gray-700 mb-2">
+                {conductor.domicilio.direccion}
+              </p>
+            )}
+            {conductor.domicilio.lat && conductor.domicilio.lng ? (
+              <>
+                <MiniMapaUbicacion
+                  lat={conductor.domicilio.lat}
+                  lng={conductor.domicilio.lng}
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  {conductor.domicilio.lat}, {conductor.domicilio.lng}
+                </p>
+              </>
+            ) : (
+              <span className="text-sm text-gray-500">
+                Sin coordenadas registradas.
+              </span>
+            )}
+          </>
+        ) : (
+          <span className="text-sm text-gray-400">
+            El conductor no marcó su domicilio en el mapa.
+          </span>
+        )}
+      </div>
+
+      {/* Reglas del auto (las que el conductor eligió que aplican) */}
+      <div className="bg-white rounded-lg shadow-sm p-4 mt-6">
+        <div className="flex items-center gap-2 mb-2">
+          <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0" />
+          <span className="text-sm font-semibold text-gray-700">
+            Reglas del auto
+          </span>
+        </div>
+        {Array.isArray(conductor?.reglasAuto) && conductor.reglasAuto.length > 0 ? (
+          <div className="flex flex-wrap gap-2">
+            {conductor.reglasAuto.map((r, i) => (
+              <span
+                key={r.id || i}
+                className="text-xs px-2.5 py-1 rounded-full bg-green-50 text-green-700 border border-green-200"
+              >
+                {r.titulo || r.id || String(r)}
+              </span>
+            ))}
+          </div>
+        ) : (
+          <span className="text-sm text-gray-400">
+            El conductor no marcó reglas para su auto.
+          </span>
+        )}
+      </div>
+
+      {/* Logs / Actividad del conductor */}
+      <LogsCliente uid={conductorId} />
 
       {/* Modal Agregar Monto */}
       <AgregarMontoModal 
