@@ -2,7 +2,7 @@ import { initializeApp } from "firebase/app";
 import { getFirestore } from "firebase/firestore";
 import { getAuth } from "firebase/auth";
 import { getStorage } from "firebase/storage";
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyBoqgldEzlobMPNuvFU_HU-lGt7tYpbaK8",
   authDomain: "mav2025-bd18e.firebaseapp.com",
   databaseURL: "https://mav2025-bd18e-default-rtdb.firebaseio.com",

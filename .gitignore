@@ -30,6 +30,7 @@ build/
 # Env
 .env
 .env.*
+!.env.example
 
 # Firebase
 .firebase/
