@@ -1,43 +1,59 @@
 import { useEffect, useRef, useState } from "react";
 import { getDatabase, ref, onValue } from "firebase/database";
 import { collection, onSnapshot } from "firebase/firestore";
-import mapboxgl from "mapbox-gl";
-import "mapbox-gl/dist/mapbox-gl.css";
+import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { Car, CircleDot, RefreshCw, Users } from "lucide-react";
 import { db } from "../config/firebase";
 
-// Token de Mapbox (cuenta mujeresalvolante, mismo que la app). Va por env:
-// el repo es publico y GitHub bloquea el push si el token queda en el codigo.
-// Definir VITE_MAPBOX_TOKEN en el .env local y en el entorno de build.
-mapboxgl.accessToken = import.meta.env.VITE_MAPBOX_TOKEN;
+// API key de Google Maps. Va por env: este repo es PUBLICO y GitHub bloquea
+// el push si la credencial queda en el codigo. Definir
+// VITE_GOOGLE_MAPS_API_KEY en el .env local y en el entorno de build
+// (ver .env.example).
+//
+// El valor queda embebido en el bundle publicado — es el modelo de uso normal
+// de Maps para web — asi que la key DEBE estar restringida por HTTP referrer
+// (dominio del panel) y por APIs habilitadas en Google Cloud.
+const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
 
 // Centro por defecto: Bolivia (Santa Cruz).
-const CENTRO_DEFAULT = [-63.18, -17.78];
+const CENTRO_DEFAULT = { lat: -17.78, lng: -63.18 };
 
-function crearElementoMarcador(activa) {
-  const el = document.createElement("div");
-  el.style.width = "30px";
-  el.style.height = "30px";
-  el.style.borderRadius = "50%";
-  el.style.display = "flex";
-  el.style.alignItems = "center";
-  el.style.justifyContent = "center";
-  el.style.color = "#fff";
-  el.style.fontSize = "15px";
-  el.style.fontWeight = "bold";
-  el.style.boxShadow = "0 0 0 3px rgba(255,255,255,0.9), 0 2px 6px rgba(0,0,0,0.4)";
-  el.style.cursor = "pointer";
-  el.style.background = activa ? "#16a34a" : "#9ca3af";
-  el.innerHTML =
-    '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>';
-  return el;
+const VERDE_ACTIVA = "#16a34a";
+const GRIS_INACTIVA = "#9ca3af";
+
+// Icono del marcador: mismo criterio visual que antes (circulo de color con
+// el auto adentro). Va como data URI porque los marcadores clasicos de Google
+// toman una imagen, no un nodo del DOM.
+function iconoMarcador(activa) {
+  const color = activa ? VERDE_ACTIVA : GRIS_INACTIVA;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="36" height="36" viewBox="0 0 36 36">
+<circle cx="18" cy="18" r="15" fill="${color}" stroke="rgba(255,255,255,0.9)" stroke-width="3"/>
+<g transform="translate(10 10) scale(0.66)" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+<path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/>
+<circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/>
+</g></svg>`;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
+}
+
+function contenidoInfoWindow(nombre, activa, telefono, lat, lng) {
+  return (
+    `<div style="font-family:sans-serif;font-size:13px;">` +
+    `<strong>${nombre}</strong><br/>` +
+    `<span style="color:${activa ? VERDE_ACTIVA : GRIS_INACTIVA};font-weight:600;">` +
+    `${activa ? "● Activa" : "○ Inactiva"}</span>` +
+    (telefono ? `<br/>${telefono}` : "") +
+    `<br/><span style="color:#888;font-size:11px;">${lat.toFixed(5)}, ${lng.toFixed(5)}</span>` +
+    `</div>`
+  );
 }
 
 export function MapaConductores() {
   const mapContainer = useRef(null);
   const mapRef = useRef(null);
-  const markersRef = useRef({}); // uid -> { marker, popup }
+  const gmapsRef = useRef(null); // namespace google.maps ya cargado
+  const markersRef = useRef({}); // uid -> { marker, info }
   const infoRef = useRef({}); // uid -> { nombre, telefono } (de Firestore)
+  const abiertoRef = useRef(null); // InfoWindow abierta (Google permite una)
   const fittedRef = useRef(false);
 
   const [conductores, setConductores] = useState([]); // [{uid, lat, lng, activa}]
@@ -47,27 +63,55 @@ export function MapaConductores() {
   // Inicializar mapa una sola vez.
   useEffect(() => {
     if (mapRef.current || !mapContainer.current) return;
-    if (!mapboxgl.accessToken) {
+    if (!GOOGLE_MAPS_API_KEY) {
       console.error(
-        "Falta VITE_MAPBOX_TOKEN: el mapa de conductoras no se puede inicializar."
+        "Falta VITE_GOOGLE_MAPS_API_KEY: el mapa de conductoras no se puede inicializar."
       );
       return;
     }
-    const map = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: "mapbox://styles/mapbox/streets-v12",
-      center: CENTRO_DEFAULT,
-      zoom: 5,
-    });
-    map.addControl(new mapboxgl.NavigationControl(), "top-right");
-    map.on("load", () => setMapReady(true));
-    mapRef.current = map;
-    // El contenedor puede no tener tamaño definitivo al montar (flex/layout) →
-    // forzamos resize tras el primer layout para que el mapa renderice.
-    setTimeout(() => map.resize(), 300);
-    setTimeout(() => map.resize(), 900);
+
+    let cancelado = false;
+
+    // API funcional del loader (v2). La clase Loader de v1 ya no existe:
+    // instanciarla tira "The Loader class is no longer available".
+    setOptions({ key: GOOGLE_MAPS_API_KEY, v: "weekly" });
+
+    importLibrary("maps")
+      .then((mapsLib) => {
+        if (cancelado || !mapContainer.current) return;
+
+        // Marker, InfoWindow, LatLngBounds y event se toman del namespace
+        // global que queda disponible una vez cargada la libreria.
+        const gmaps = window.google.maps;
+        gmapsRef.current = gmaps;
+
+        const map = new mapsLib.Map(mapContainer.current, {
+          center: CENTRO_DEFAULT,
+          zoom: 5,
+          // Equivalente al NavigationControl de antes; sacamos los controles
+          // que no aportan en un panel de flota.
+          zoomControl: true,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: true,
+        });
+
+        mapRef.current = map;
+        setMapReady(true);
+      })
+      .catch((e) => {
+        console.error("No se pudo cargar Google Maps:", e);
+      });
+
     return () => {
-      map.remove();
+      cancelado = true;
+      // Google Maps no tiene un destroy(): se sueltan las referencias y se
+      // limpian los marcadores para no dejarlos colgados.
+      for (const uid of Object.keys(markersRef.current)) {
+        markersRef.current[uid].marker.setMap(null);
+      }
+      markersRef.current = {};
+      abiertoRef.current = null;
       mapRef.current = null;
     };
   }, []);
@@ -116,79 +160,92 @@ export function MapaConductores() {
   // Pintar / actualizar marcadores cuando hay datos y mapa listo.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !mapReady) return;
+    const gmaps = gmapsRef.current;
+    if (!map || !gmaps || !mapReady) return;
 
     const vivos = new Set();
     for (const c of conductores) {
       vivos.add(c.uid);
       const info = infoRef.current[c.uid] || {};
       const nombre = info.nombre || "Conductora";
-      const popupHtml =
-        `<div style="font-family:sans-serif;font-size:13px;">` +
-        `<strong>${nombre}</strong><br/>` +
-        `<span style="color:${c.activa ? "#16a34a" : "#9ca3af"};font-weight:600;">` +
-        `${c.activa ? "● Activa" : "○ Inactiva"}</span>` +
-        (info.telefono ? `<br/>${info.telefono}` : "") +
-        `<br/><span style="color:#888;font-size:11px;">${c.lat.toFixed(5)}, ${c.lng.toFixed(5)}</span>` +
-        `</div>`;
+      const html = contenidoInfoWindow(
+        nombre,
+        c.activa,
+        info.telefono,
+        c.lat,
+        c.lng
+      );
+      const posicion = { lat: c.lat, lng: c.lng };
 
       const existente = markersRef.current[c.uid];
       if (existente) {
-        existente.marker.setLngLat([c.lng, c.lat]);
-        existente.popup.setHTML(popupHtml);
-        // color según estado
-        existente.marker.getElement().style.background = c.activa
-          ? "#16a34a"
-          : "#9ca3af";
+        existente.marker.setPosition(posicion);
+        existente.marker.setIcon(iconoMarcador(c.activa));
+        existente.info.setContent(html);
       } else {
-        const el = crearElementoMarcador(c.activa);
-        const popup = new mapboxgl.Popup({ offset: 18 }).setHTML(popupHtml);
-        const marker = new mapboxgl.Marker({ element: el })
-          .setLngLat([c.lng, c.lat])
-          .setPopup(popup)
-          .addTo(map);
-        markersRef.current[c.uid] = { marker, popup };
+        const marker = new gmaps.Marker({
+          map,
+          position: posicion,
+          icon: iconoMarcador(c.activa),
+          title: nombre,
+        });
+        const infoWindow = new gmaps.InfoWindow({ content: html });
+        marker.addListener("click", () => {
+          // Google no cierra sola la anterior.
+          abiertoRef.current?.close();
+          infoWindow.open({ map, anchor: marker });
+          abiertoRef.current = infoWindow;
+        });
+        markersRef.current[c.uid] = { marker, info: infoWindow };
       }
     }
 
     // Eliminar marcadores de conductoras que ya no están.
     for (const uid of Object.keys(markersRef.current)) {
       if (!vivos.has(uid)) {
-        markersRef.current[uid].marker.remove();
+        markersRef.current[uid].marker.setMap(null);
         delete markersRef.current[uid];
       }
     }
 
     // Ajustar la cámara a todas las conductoras (solo la primera vez).
     if (!fittedRef.current && conductores.length > 0) {
-      const bounds = new mapboxgl.LngLatBounds();
-      conductores.forEach((c) => bounds.extend([c.lng, c.lat]));
-      map.fitBounds(bounds, { padding: 80, maxZoom: 14, duration: 800 });
+      ajustarAConductoras(conductores);
       fittedRef.current = true;
     }
   }, [conductores, mapReady]);
 
+  // Encuadra el mapa sobre todas las conductoras con posición.
+  const ajustarAConductoras = (lista) => {
+    const map = mapRef.current;
+    const gmaps = gmapsRef.current;
+    if (!map || !gmaps || lista.length === 0) return;
+
+    const bounds = new gmaps.LatLngBounds();
+    lista.forEach((c) => bounds.extend({ lat: c.lat, lng: c.lng }));
+    map.fitBounds(bounds, 80);
+
+    // fitBounds con un solo punto se va a zoom máximo: lo acotamos igual que
+    // antes (maxZoom 14).
+    gmaps.event.addListenerOnce(map, "idle", () => {
+      if (map.getZoom() > 14) map.setZoom(14);
+    });
+  };
+
   const activas = conductores.filter((c) => c.activa).length;
 
-  const reencuadrar = () => {
-    const map = mapRef.current;
-    if (!map || conductores.length === 0) return;
-    const bounds = new mapboxgl.LngLatBounds();
-    conductores.forEach((c) => bounds.extend([c.lng, c.lat]));
-    map.fitBounds(bounds, { padding: 80, maxZoom: 14, duration: 800 });
-  };
+  const reencuadrar = () => ajustarAConductoras(conductores);
 
   const centrarEn = (c) => {
     const map = mapRef.current;
     if (!map || !c || !isFinite(c.lat) || !isFinite(c.lng)) return;
-    map.flyTo({ center: [c.lng, c.lat], zoom: 16, duration: 800 });
+    map.panTo({ lat: c.lat, lng: c.lng });
+    map.setZoom(16);
     const entry = markersRef.current[c.uid];
-    if (entry?.popup && entry?.marker && !entry.popup.isOpen()) {
-      try {
-        entry.marker.togglePopup();
-      } catch (_) {
-        /* noop */
-      }
+    if (entry) {
+      abiertoRef.current?.close();
+      entry.info.open({ map, anchor: entry.marker });
+      abiertoRef.current = entry.info;
     }
   };
 
@@ -284,5 +341,3 @@ export function MapaConductores() {
     </div>
   );
 }
-
-export default MapaConductores;
