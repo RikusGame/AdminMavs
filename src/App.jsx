@@ -26,7 +26,7 @@ import { IDS_SECCIONES } from "./config/seccionesAdmin";
 import { UnauthorizedAccess } from "./pages/UnauthorizedAccess";
 
 // Secciones pesadas cargadas on-demand para achicar el bundle inicial:
-// MapaConductores arrastra mapbox-gl y Dashboard recharts. (Tarjeta [224])
+// MapaConductores arrastra Google Maps y Dashboard recharts. (Tarjeta [224])
 const MapaConductores = lazy(() =>
   import("./pages/MapaConductores").then((m) => ({ default: m.MapaConductores }))
 );
