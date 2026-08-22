@@ -1,11 +1,44 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { X } from 'lucide-react';
 import { getFunctions, httpsCallable } from "firebase/functions";
+
+// `crypto.randomUUID` sólo existe en contexto seguro (https o localhost). El
+// panel corre en https, pero si algún día se sirve por http plano esto tiraría
+// "randomUUID is not a function" y rompería el crédito entero — peor que el bug
+// que estamos arreglando. El respaldo usa getRandomValues, que ya se usa en
+// utils/password.js. El formato coincide con el que valida la function:
+// [A-Za-z0-9_-]{8,64}.
+function nuevaOperacionId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+}
 
 export function AgregarMontoModal({ isOpen, onClose, conductorNombre, conductorId, onMontoAdded }) {
   const [cantidad, setCantidad] = useState('');
   const [nota, setNota] = useState('');
   const [loading, setLoading] = useState(false);
+
+  // Clave de idempotencia del crédito. (Tarjeta [1008])
+  //
+  // Va en un ref y NO en el cuerpo del handler: si se generara en cada click,
+  // cada reintento mandaría una clave distinta y no serviría de nada. Acá se
+  // genera una vez, se conserva mientras la operación no haya terminado bien, y
+  // recién se limpia al acreditar con éxito.
+  //
+  // Con eso, los tres casos quedan cubiertos:
+  //   doble click            -> misma clave, el servidor acredita una sola vez
+  //   reintento tras error   -> misma clave, no duplica lo que quizá sí entró
+  //   segundo crédito a la
+  //   misma persona, a mano  -> clave nueva, acredita de verdad (es legítimo)
+  //
+  // El último caso es la razón por la que la clave la genera el panel y no se
+  // deriva de los datos: acreditarle dos veces lo mismo a la misma conductora
+  // el mismo día es una operación válida, no un duplicado.
+  const operacionIdRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -26,6 +59,12 @@ export function AgregarMontoModal({ isOpen, onClose, conductorNombre, conductorI
       // sin haber acreditado nada. Ahora el servidor valida que quien llama sea
       // admin y aplica todo con FieldValue.increment() dentro de una única
       // transacción.
+      // Se reutiliza la clave si ya había una de un intento anterior que no
+      // llegó a confirmarse.
+      if (!operacionIdRef.current) {
+        operacionIdRef.current = nuevaOperacionId();
+      }
+
       const functions = getFunctions(undefined, "us-central1");
       const acreditarRecarga = httpsCallable(functions, "acreditarRecarga");
       const { data } = await acreditarRecarga({
@@ -34,8 +73,17 @@ export function AgregarMontoModal({ isOpen, onClose, conductorNombre, conductorI
         monto: montoAgregar,
         metodoPago: "efectivo",
         notas: nota || "",
+        operacionId: operacionIdRef.current,
       });
 
+      // Acreditado (o ya estaba acreditado): la operación terminó, así que el
+      // próximo crédito arranca con una clave nueva.
+      operacionIdRef.current = null;
+
+      // `duplicada: true` significa que esta misma operación ya se había
+      // acreditado. Para la admin es un éxito, no un error: el saldo está bien.
+      // Mostrarle un error la llevaría a intentar de nuevo, que es justo lo que
+      // queremos evitar.
       const nuevoSaldo = data?.saldo ?? 0;
 
       // Llamar callback para actualizar el estado en el componente padre
