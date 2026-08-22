@@ -8,9 +8,9 @@ import {
   orderBy,
   limit,
   runTransaction,
-  addDoc,
   serverTimestamp,
 } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import {
   Wallet,
   CheckCircle,
@@ -78,70 +78,23 @@ export function SolicitudesRecarga() {
     }
     setProcesando(sol.id);
     try {
-      const base = sol.tipoUsuario === "pasajero" ? "pasajeros" : "taxistas";
-      const adminEmail = auth.currentUser?.email || "admin";
-
-      // Transacción: si otro admin ya la procesó, aborta sin doble crédito.
-      await runTransaction(db, async (tx) => {
-        const solRef = doc(db, "solicitudesRecarga", sol.id);
-        const solSnap = await tx.get(solRef);
-        if (!solSnap.exists() || solSnap.data().estado !== "pendiente") {
-          throw new Error("Esta solicitud ya fue procesada.");
-        }
-
-        const saldoRef = doc(db, base, sol.uid, "billetera", "saldo");
-        const saldoSnap = await tx.get(saldoRef);
-        const saldoActual = saldoSnap.exists()
-          ? Number(saldoSnap.data().saldo || 0)
-          : 0;
-
-        tx.set(
-          saldoRef,
-          {
-            saldo: saldoActual + monto,
-            ultimaActualizacion: serverTimestamp(),
-          },
-          { merge: true }
-        );
-
-        // Entrada en el historial que ya lee la app y PerfilConductor.
-        const histRef = doc(
-          collection(db, base, sol.uid, "billetera", "historial", "recargas")
-        );
-        tx.set(histRef, {
-          estado: "completado",
-          fecha: serverTimestamp(),
-          metodoPago: "qr",
-          monto,
-          notas: sol.referencia
-            ? `Recarga QR aprobada (ref: ${sol.referencia})`
-            : "Recarga QR aprobada",
-          solicitudId: sol.id,
-          aprobadoPor: adminEmail,
-        });
-
-        tx.update(solRef, {
-          estado: "aprobado",
-          aprobadoPor: adminEmail,
-          aprobadoAt: serverTimestamp(),
-        });
+      // El saldo lo mueve la Cloud Function `acreditarRecarga` (tarjeta [977]).
+      // Antes esto se hacía acá, leyendo el saldo y reescribiéndolo sumado: si
+      // entraba otro movimiento en el medio se perdía plata. Ahora el servidor
+      // lo aplica con FieldValue.increment() dentro de una transacción, valida
+      // que quien llama sea admin, y marca la solicitud como aprobada — todo
+      // junto o nada. La copia en billetera_transacciones también entra en esa
+      // transacción, así que ya no puede quedar saldo acreditado sin su
+      // registro contable.
+      const functions = getFunctions(undefined, "us-central1");
+      const acreditarRecarga = httpsCallable(functions, "acreditarRecarga");
+      await acreditarRecarga({
+        solicitudId: sol.id,
+        uid: sol.uid,
+        tipoUsuario: sol.tipoUsuario === "pasajero" ? "pasajero" : "taxista",
+        monto,
+        metodoPago: "qr",
       });
-
-      // Copia global para reportes (best-effort, igual que AgregarMontoModal).
-      try {
-        await addDoc(collection(db, "billetera_transacciones"), {
-          estado: "completado",
-          fecha: serverTimestamp(),
-          metodoPago: "qr",
-          monto,
-          notas: "Recarga QR aprobada",
-          taxistaId: sol.tipoUsuario === "pasajero" ? null : sol.uid,
-          pasajeroId: sol.tipoUsuario === "pasajero" ? sol.uid : null,
-          solicitudId: sol.id,
-        });
-      } catch (e) {
-        console.warn("No se pudo crear la copia global:", e);
-      }
     } catch (e) {
       console.error("Error aprobando recarga:", e);
       alert("No se pudo aprobar: " + (e.message || e));

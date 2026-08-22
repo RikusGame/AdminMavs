@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
-import { db, auth } from "../config/firebase";
-import { doc, updateDoc, getDoc, collection, addDoc, setDoc, serverTimestamp } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 export function AgregarMontoModal({ isOpen, onClose, conductorNombre, conductorId, onMontoAdded }) {
   const [cantidad, setCantidad] = useState('');
@@ -17,71 +16,28 @@ export function AgregarMontoModal({ isOpen, onClose, conductorNombre, conductorI
 
     setLoading(true);
     try {
-      const conductorRef = doc(db, "taxistas", conductorId);
-      
-      // Obtener el documento actual del taxista
-      const conductorSnapshot = await getDoc(conductorRef);
-      if (!conductorSnapshot.exists()) {
-        throw new Error('Conductor no encontrado');
-      }
-
-      const conductorData = conductorSnapshot.data();
-      
-      // Leer saldo desde el documento billetera/saldo
-      const saldoDocRef = doc(db, "taxistas", conductorId, "billetera", "saldo");
-      const saldoDoc = await getDoc(saldoDocRef);
-      
-      let saldoActual = 0;
-      if (saldoDoc.exists()) {
-        saldoActual = saldoDoc.data().saldo || 0;
-        console.log('📊 Saldo actual desde taxistas/{id}/billetera/saldo:', saldoActual);
-      } else {
-        console.log('⚠️ Documento saldo no existe, se creará uno nuevo');
-      }
-      
       const montoAgregar = parseFloat(cantidad);
-      const nuevoSaldo = saldoActual + montoAgregar;
 
-      // Obtener información del admin actual
-      const adminEmail = auth.currentUser?.email || 'admin@sistema.com';
-      const adminUid = auth.currentUser?.uid || 'sistema';
-
-      // 1. Crear documento de transacción en billetera/historial/recargas
-      const recargasRef = collection(db, "taxistas", conductorId, "billetera", "historial", "recargas");
-      const transaccionData = {
-        estado: 'completado',
-        fecha: serverTimestamp(),
-        metodoPago: 'efectivo',
+      // El saldo lo mueve la Cloud Function `acreditarRecarga` (tarjeta [977]).
+      // Antes esto se hacía acá con tres escrituras sueltas y SIN transacción:
+      // leer el saldo, crear el movimiento, y reescribir el saldo con
+      // `saldoActual + monto`. Si entraba una comisión en el medio, se perdía;
+      // y si fallaba la última escritura, quedaba el movimiento en el historial
+      // sin haber acreditado nada. Ahora el servidor valida que quien llama sea
+      // admin y aplica todo con FieldValue.increment() dentro de una única
+      // transacción.
+      const functions = getFunctions(undefined, "us-central1");
+      const acreditarRecarga = httpsCallable(functions, "acreditarRecarga");
+      const { data } = await acreditarRecarga({
+        uid: conductorId,
+        tipoUsuario: "taxista",
         monto: montoAgregar,
-        notas: nota || 'Recarga registrada desde la app'
-      };
-
-      const transaccionRef = await addDoc(recargasRef, transaccionData);
-      console.log('✅ Transacción creada en historial/recargas con ID:', transaccionRef.id);
-
-      // 2. Crear una copia en la colección global billetera_transacciones para reportes
-      const transaccionGlobalRef = await addDoc(collection(db, "billetera_transacciones"), {
-        ...transaccionData,
-        taxistaId: conductorId,
-        transaccionLocalId: transaccionRef.id
+        metodoPago: "efectivo",
+        notas: nota || "",
       });
-      console.log('✅ Transacción global creada con ID:', transaccionGlobalRef.id);
 
-      // 3. Actualizar el documento billetera/saldo (usar la referencia ya creada)
-      await setDoc(saldoDocRef, {
-        saldo: nuevoSaldo,
-        ultimaActualizacion: serverTimestamp()
-      }, { merge: true });
-      console.log('✅ Saldo actualizado en taxistas/{id}/billetera/saldo');
+      const nuevoSaldo = data?.saldo ?? 0;
 
-      console.log('✅ Monto agregado exitosamente:', { 
-        cantidad: montoAgregar, 
-        saldoAnterior: saldoActual,
-        nuevoSaldo,
-        transaccionId: transaccionRef.id,
-        transaccionGlobalId: transaccionGlobalRef.id
-      });
-      
       // Llamar callback para actualizar el estado en el componente padre
       if (onMontoAdded) {
         onMontoAdded(nuevoSaldo);
