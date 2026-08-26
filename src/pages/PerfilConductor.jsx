@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { db, storage } from "../config/firebase";
-import { doc, getDoc, getDocs, updateDoc, collection, query, orderBy, limit, onSnapshot, collectionGroup, where } from "firebase/firestore";
+import { doc, getDoc, updateDoc, collection, query, orderBy, limit, onSnapshot, collectionGroup, where } from "firebase/firestore";
 import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { ArrowLeft, Mail, Phone, TrendingUp, TrendingDown, MapPin, DollarSign, Calendar, CreditCard, CheckCircle } from 'lucide-react';
 import { AgregarMontoModal } from "../modal/AgregarMontoModal";
@@ -56,22 +56,75 @@ export function PerfilConductor({ conductorId, onBack }) {
   const [serviciosApp, setServiciosApp] = useState([]);
   const [servicioConductor, setServicioConductor] = useState("");
   const [guardandoServicio, setGuardandoServicio] = useState(false);
+  // Departamento de la conductora: el catálogo de servicios depende de él.
+  const [departamentoConductor, setDepartamentoConductor] = useState("");
+  const [cargandoServicios, setCargandoServicios] = useState(false);
+  const [falloServicios, setFalloServicios] = useState(false);
 
+  // Mismo criterio que usó la [744] en RegistrarConductorModal: los servicios
+  // viven en empresas/mujeresalvolante/tarifas/{departamento}, un documento por
+  // departamento con una clave por servicio.
+  //
+  // Antes esto leía `servicios` con where("activo","==",true). Esa colección es
+  // herencia de Chasky, en MAV nadie la escribe nunca y en producción tiene
+  // CERO documentos — así que este dropdown salía siempre vacío y no se podía
+  // asignar ni corregir el servicio de una conductora. (Tarjeta [1122])
+  //
+  // Es la MISMA fuente de la que la app le muestra los servicios a la
+  // conductora y a la pasajera. Importa que sea la misma: el despacho compara
+  // los dos strings con `!==` (functions/index.js:379), así que si salieran de
+  // listas distintas la conductora dejaría de recibir órdenes sin que nada
+  // falle a la vista.
   useEffect(() => {
+    if (!departamentoConductor) {
+      setServiciosApp([]);
+      return;
+    }
+
+    let cancelado = false;
     (async () => {
+      setCargandoServicios(true);
+      setFalloServicios(false);
       try {
-        const snap = await getDocs(
-          query(collection(db, "servicios"), where("activo", "==", true))
+        const snap = await getDoc(
+          doc(db, "empresas", "mujeresalvolante", "tarifas", departamentoConductor)
         );
-        const lista = snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }))
-          .sort((a, b) => (a.orden ?? 0) - (b.orden ?? 0));
+        const data = snap.exists() ? snap.data() : {};
+
+        // Cada clave del doc es un servicio; el resto de los campos no son
+        // objetos y se descartan solos.
+        const lista = Object.entries(data)
+          .filter(
+            ([, v]) => typeof v === "object" && v !== null && v.activo === true
+          )
+          .map(([clave, v], i) => ({
+            id: clave,
+            // `v.servicio` es el nombre visible y es EL VALOR QUE SE GUARDA.
+            // Ojo: no coincide con la clave — por ejemplo la clave
+            // `mujeres_al_volante` tiene servicio "TRANSPORTE SEGURO", que es
+            // justamente lo que traen las órdenes reales.
+            nombre: v.servicio || clave,
+            orden: v.orden === undefined || v.orden === null ? i : Number(v.orden),
+          }))
+          .sort((a, b) => a.orden - b.orden || a.nombre.localeCompare(b.nombre));
+
+        if (cancelado) return;
         setServiciosApp(lista);
       } catch (e) {
+        if (!cancelado) {
+          setServiciosApp([]);
+          setFalloServicios(true);
+        }
         console.error("Error cargando servicios:", e);
+      } finally {
+        if (!cancelado) setCargandoServicios(false);
       }
     })();
-  }, []);
+
+    return () => {
+      cancelado = true;
+    };
+  }, [departamentoConductor]);
 
   const cambiarServicio = async (nombre) => {
     if (!conductorId) return;
@@ -179,6 +232,8 @@ export function PerfilConductor({ conductorId, onBack }) {
   },
 });
           setServicioConductor(vehiculo.servicioSeleccionado || "");
+          // El catálogo de servicios depende del departamento. (Tarjeta [1122])
+          setDepartamentoConductor(vehiculo.departamentoServicio || "");
         } else {
           console.error("❌ Conductor no encontrado");
         }
@@ -482,6 +537,35 @@ export function PerfilConductor({ conductorId, onBack }) {
                     </span>
                   )}
                 </div>
+                {/* Los tres motivos por los que el dropdown puede estar vacío
+                    llevan a acciones distintas, así que se distinguen.
+                    (Tarjeta [1122]) */}
+                {!departamentoConductor && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Esta conductora no tiene departamento cargado en sus
+                    documentos del vehículo, y los servicios se configuran por
+                    departamento.
+                  </p>
+                )}
+                {departamentoConductor && cargandoServicios && (
+                  <p className="text-xs text-gray-500 mt-2">
+                    Cargando servicios de {departamentoConductor}…
+                  </p>
+                )}
+                {departamentoConductor && !cargandoServicios && falloServicios && (
+                  <p className="text-xs text-red-600 mt-2">
+                    No se pudieron cargar los servicios. Recargá la página.
+                  </p>
+                )}
+                {departamentoConductor &&
+                  !cargandoServicios &&
+                  !falloServicios &&
+                  serviciosApp.length === 0 && (
+                    <p className="text-xs text-gray-500 mt-2">
+                      No hay servicios activos en {departamentoConductor}.
+                      Activalos desde la sección Servicios.
+                    </p>
+                  )}
               </div>
 
 
