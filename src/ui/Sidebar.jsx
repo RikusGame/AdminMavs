@@ -9,6 +9,7 @@ import {
   ChevronRight,
   ChevronDown,
   Ruler,
+  Phone,
   Flag,
   DollarSign,
   HelpCircle,
@@ -184,6 +185,14 @@ export function Sidebar({ activeSection, setActiveSection, isExpanded, setIsExpa
       section: "configuración",
       ayuda:
         "El catálogo de reglas del auto (No mascotas, Prohibido fumar, etc.) que cada conductora elige para su vehículo y ven las pasajeras.",
+    },
+    {
+      id: "contacto-soporte",
+      label: "Número de contacto",
+      icon: Phone,
+      section: "configuración",
+      ayuda:
+        "El número que ven las usuarias en la pantalla de Información de la app, y al que las lleva el botón de WhatsApp. Antes estaba fijo en el código.",
     },
   ];
 
