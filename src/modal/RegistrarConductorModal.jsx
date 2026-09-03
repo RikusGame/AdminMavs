@@ -167,6 +167,26 @@ export function RegistrarConductorModal({ onClose }) {
     if (servicios.length > 0 && !servicioSel) {
       return setError("Selecciona el servicio con el que trabajará.");
     }
+
+    // Estos cuatro son EXACTAMENTE los que la app exige para considerar el
+    // registro completo. Sin ellos, la conductora se da de alta acá pero la
+    // app la manda al formulario de registro cada vez que entra, y el admin
+    // no se entera (tarjeta 1397). Antes ninguno se validaba.
+    const faltanDatosVehiculo = [
+      ["Marca", marca],
+      ["Color", color],
+      ["Placa", placa],
+      ["N° asientos", numeroAsientos],
+    ]
+      .filter(([, valor]) => !valor.trim())
+      .map(([etiqueta]) => etiqueta);
+    if (faltanDatosVehiculo.length > 0) {
+      return setError(
+        "Faltan datos del vehículo: " +
+          faltanDatosVehiculo.join(", ") +
+          ". Sin ellos la app le pedirá el registro de nuevo a la conductora."
+      );
+    }
     const faltan = DOCS_OBLIGATORIOS.filter((d) => !docs[d.id]);
     if (faltan.length > 0) {
       return setError(
@@ -257,7 +277,19 @@ export function RegistrarConductorModal({ onClose }) {
           marca: marca.trim(),
           modelo: modelo.trim(),
           color: color.trim(),
+          // La placa se escribe con los TRES nombres que usa el proyecto
+          // (tarjeta 1397). No es redundancia porque sí: la app la lee con
+          // nombres distintos según la pantalla, y antes el panel guardaba
+          // sólo `placa`, que ningún chequeo de la app reconocía. Resultado:
+          // toda conductora dada de alta acá terminaba de vuelta en el
+          // formulario de registro cada vez que entraba a la app.
+          //   `numeroPlaca`    es la clave nueva del asistente de la app
+          //   `numeroLicencia` es su alias legacy, que guarda la PLACA y no
+          //                    el número de licencia, pese al nombre
+          //   `placa`          es la que ya usaba este panel
           placa: placa.trim().toUpperCase(),
+          numeroPlaca: placa.trim().toUpperCase(),
+          numeroLicencia: placa.trim().toUpperCase(),
           tipoVehiculo: tipoVehiculo.trim(),
           numeroAsientos: numeroAsientos.trim(),
           departamentoServicio: departamento,
@@ -459,17 +491,17 @@ export function RegistrarConductorModal({ onClose }) {
                   Vehículo
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  <Field label="Marca"><input className={inputCls} value={marca} onChange={(e) => setMarca(e.target.value)} /></Field>
+                  <Field label="Marca" required><input className={inputCls} value={marca} onChange={(e) => setMarca(e.target.value)} /></Field>
                   {/* "Modelo" acá es el AÑO del vehículo, no el nombre del
                       modelo. Sin la aclaración se llenaba con cualquiera de
                       los dos (tarjeta 1447). En la app, el asistente de
                       documentos del vehículo ya lo rotula "Modelo (Año)" y
                       ofrece una ruleta de años, así que esto los alinea. */}
                   <Field label="Modelo (año)"><input className={inputCls} value={modelo} onChange={(e) => setModelo(e.target.value)} placeholder="2018" inputMode="numeric" /></Field>
-                  <Field label="Color"><input className={inputCls} value={color} onChange={(e) => setColor(e.target.value)} /></Field>
-                  <Field label="Placa"><input className={inputCls} value={placa} onChange={(e) => setPlaca(e.target.value)} /></Field>
+                  <Field label="Color" required><input className={inputCls} value={color} onChange={(e) => setColor(e.target.value)} /></Field>
+                  <Field label="Placa" required><input className={inputCls} value={placa} onChange={(e) => setPlaca(e.target.value)} /></Field>
                   <Field label="Tipo"><input className={inputCls} value={tipoVehiculo} onChange={(e) => setTipoVehiculo(e.target.value)} placeholder="Auto, Vagoneta..." /></Field>
-                  <Field label="N° asientos"><input className={inputCls} value={numeroAsientos} onChange={(e) => setNumeroAsientos(e.target.value)} placeholder="4" /></Field>
+                  <Field label="N° asientos" required><input className={inputCls} value={numeroAsientos} onChange={(e) => setNumeroAsientos(e.target.value)} placeholder="4" /></Field>
                   <Field label="Servicio" required>
                     <select
                       className={inputCls}
