@@ -20,6 +20,7 @@ import { Empresas } from "./pages/Empresas";
 import { Notificaciones } from "./pages/Notificaciones";
 import { PreguntasFrecuentes } from "./pages/PreguntasFrecuentes";
 import { ReglasConductores } from "./pages/ReglasConductores";
+import { ContactoSoporte } from "./pages/ContactoSoporte";
 import ViajesSection from "./pages/viajes_section";
 import { isCurrentUserAdmin, obtenerAccesoAdmin } from "./utils/adminValidator";
 import { IDS_SECCIONES } from "./config/seccionesAdmin";
@@ -248,6 +249,9 @@ export default function App() {
 
       case "reglas":
         return <ReglasConductores />;
+
+      case "contacto-soporte":
+        return <ContactoSoporte />;
 
       case "plan-suscripcion":
         return <EnConstruccion />;
