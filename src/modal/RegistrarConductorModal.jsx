@@ -27,6 +27,7 @@ import { firebaseConfig } from "../config/firebase";
 import { generarPassword } from "../utils/password";
 import { enviarCorreoBienvenidaConductor } from "../utils/sendWelcomeEmail";
 import { UploadImagen } from "../components/UploadImagen";
+import { CatalogoSelect } from "../components/CatalogoSelect";
 
 const DEPARTAMENTOS = [
   "La Paz",
@@ -39,6 +40,15 @@ const DEPARTAMENTOS = [
   "Beni",
   "Pando",
 ];
+
+// Mismo rango que la ruleta de la app (steps_builder.dart): del año actual
+// hacia atrás hasta 1990.
+const ANIOS_MODELO = (() => {
+  const actual = new Date().getFullYear();
+  const anios = [];
+  for (let y = actual; y >= 1990; y--) anios.push(String(y));
+  return anios;
+})();
 
 const DOCS_OBLIGATORIOS = [
   { id: "fotoConductor", label: "Foto del Conductor" },
@@ -491,16 +501,55 @@ export function RegistrarConductorModal({ onClose }) {
                   Vehículo
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  <Field label="Marca" required><input className={inputCls} value={marca} onChange={(e) => setMarca(e.target.value)} /></Field>
+                  {/* Marca, Color, Tipo y Modelo salen de la MISMA lista que
+                      usa la app, en vez de ser texto libre (tarjeta 1446).
+                      Antes el mismo campo terminaba con un valor del catálogo
+                      o con lo que alguien tipeara: en la captura de la 1447 se
+                      ve la marca cargada como "zusuky". Los cuatro conservan
+                      la opción "Otro...", que es el equivalente al escape de
+                      `catalogos_pendientes` que ya tiene la app. */}
+                  <Field label="Marca" required>
+                    <CatalogoSelect
+                      catalogoId="vehiculos_marcas"
+                      className={inputCls}
+                      value={marca}
+                      onChange={setMarca}
+                      placeholder="Elegí la marca"
+                    />
+                  </Field>
                   {/* "Modelo" acá es el AÑO del vehículo, no el nombre del
-                      modelo. Sin la aclaración se llenaba con cualquiera de
-                      los dos (tarjeta 1447). En la app, el asistente de
-                      documentos del vehículo ya lo rotula "Modelo (Año)" y
-                      ofrece una ruleta de años, así que esto los alinea. */}
-                  <Field label="Modelo (año)"><input className={inputCls} value={modelo} onChange={(e) => setModelo(e.target.value)} placeholder="2018" inputMode="numeric" /></Field>
-                  <Field label="Color" required><input className={inputCls} value={color} onChange={(e) => setColor(e.target.value)} /></Field>
+                      modelo (tarjeta 1447). La app ofrece una ruleta de años
+                      desde 1990 hasta el actual; acá se genera la misma lista
+                      para que las dos puntas coincidan. */}
+                  <Field label="Modelo (año)">
+                    <CatalogoSelect
+                      opcionesFijas={ANIOS_MODELO}
+                      className={inputCls}
+                      value={modelo}
+                      onChange={setModelo}
+                      placeholder="Elegí el año"
+                      inputMode="numeric"
+                    />
+                  </Field>
+                  <Field label="Color" required>
+                    <CatalogoSelect
+                      catalogoId="vehiculos_colores"
+                      className={inputCls}
+                      value={color}
+                      onChange={setColor}
+                      placeholder="Elegí el color"
+                    />
+                  </Field>
                   <Field label="Placa" required><input className={inputCls} value={placa} onChange={(e) => setPlaca(e.target.value)} /></Field>
-                  <Field label="Tipo"><input className={inputCls} value={tipoVehiculo} onChange={(e) => setTipoVehiculo(e.target.value)} placeholder="Auto, Vagoneta..." /></Field>
+                  <Field label="Tipo">
+                    <CatalogoSelect
+                      catalogoId="vehiculos_tipos"
+                      className={inputCls}
+                      value={tipoVehiculo}
+                      onChange={setTipoVehiculo}
+                      placeholder="Elegí el tipo"
+                    />
+                  </Field>
                   <Field label="N° asientos" required><input className={inputCls} value={numeroAsientos} onChange={(e) => setNumeroAsientos(e.target.value)} placeholder="4" /></Field>
                   <Field label="Servicio" required>
                     <select
