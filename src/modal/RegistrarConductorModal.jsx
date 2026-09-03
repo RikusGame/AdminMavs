@@ -28,6 +28,7 @@ import { generarPassword } from "../utils/password";
 import { enviarCorreoBienvenidaConductor } from "../utils/sendWelcomeEmail";
 import { UploadImagen } from "../components/UploadImagen";
 import { CatalogoSelect } from "../components/CatalogoSelect";
+import { cargarDocumentosRegistro } from "../services/documentosRegistro";
 
 const DEPARTAMENTOS = [
   "La Paz",
@@ -50,22 +51,7 @@ const ANIOS_MODELO = (() => {
   return anios;
 })();
 
-const DOCS_OBLIGATORIOS = [
-  { id: "fotoConductor", label: "Foto del Conductor" },
-  { id: "fotoCarneIdentidadAnverso", label: "C.I. Anverso" },
-  { id: "fotoCarneIdentidadReverso", label: "C.I. Reverso" },
-  { id: "fotoLicenciaConducirAnverso", label: "Licencia Anverso" },
-  { id: "fotoLicenciaConducirReverso", label: "Licencia Reverso" },
-];
 
-const DOCS_OPCIONALES = [
-  { id: "fotoSoat", label: "SOAT" },
-  { id: "fotoRevisionTecnica", label: "Revisión Técnica" },
-  { id: "fotoPermisoCirculacion", label: "Permiso de Circulación" },
-  { id: "fotoAntecedentesPenales", label: "Antecedentes Penales" },
-  { id: "fotoVehiculo1", label: "Foto Vehículo 1" },
-  { id: "fotoVehiculo2", label: "Foto Vehículo 2" },
-];
 
 function capitalizar(s) {
   return s.charAt(0).toUpperCase() + s.slice(1);
@@ -154,6 +140,31 @@ export function RegistrarConductorModal({ onClose }) {
     };
   }, [departamento]);
 
+  // Documentos que hay que pedir. Salen de `configuracion/documentosRegistro`,
+  // la MISMA fuente que valida la app, en vez de una lista escrita a mano acá
+  // (tarjeta 1459). Antes las dos listas se desincronizaban: cinco documentos
+  // que la app exige figuraban como opcionales en el panel, y los que se
+  // agregaron después por la pantalla de configuración el panel ni los ofrecía.
+  const [documentos, setDocumentos] = useState([]);
+  const [cargandoDocumentos, setCargandoDocumentos] = useState(true);
+
+  useEffect(() => {
+    let cancelado = false;
+    (async () => {
+      const lista = await cargarDocumentosRegistro();
+      if (cancelado) return;
+      setDocumentos(lista);
+      setCargandoDocumentos(false);
+    })();
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  const docsRequeridos = documentos.filter((d) => d.requerido);
+  const docsOpcionales = documentos.filter((d) => !d.requerido);
+  const faltanDocumentos = docsRequeridos.filter((d) => !docs[d.id]);
+
   const [habilitado, setHabilitado] = useState(true);
 
   // Imágenes
@@ -197,13 +208,11 @@ export function RegistrarConductorModal({ onClose }) {
           ". Sin ellos la app le pedirá el registro de nuevo a la conductora."
       );
     }
-    const faltan = DOCS_OBLIGATORIOS.filter((d) => !docs[d.id]);
-    if (faltan.length > 0) {
-      return setError(
-        "Faltan documentos obligatorios: " +
-          faltan.map((d) => d.label).join(", ")
-      );
-    }
+    // Los documentos faltantes AVISAN, no bloquean (tarjeta 1459). El admin
+    // muchas veces da de alta a la conductora antes de que ella le acerque las
+    // fotos, y bloquear hasta tenerlas todas sería peor que el problema que
+    // esta tarjeta viene a resolver. El aviso va en el formulario, arriba del
+    // botón, y dice que la conductora va a ver el checklist incompleto.
 
     setSaving(true);
     const password = generarPassword(12);
@@ -242,11 +251,10 @@ export function RegistrarConductorModal({ onClose }) {
       // Documentos
       const docUrls = {};
       const verificados = {};
-      const todosDocs = [...DOCS_OBLIGATORIOS, ...DOCS_OPCIONALES];
-      for (const d of todosDocs) {
+      for (const d of documentos) {
         const file = docs[d.id];
         if (!file) continue;
-        setProgreso(`Subiendo ${d.label}...`);
+        setProgreso(`Subiendo ${d.nombre}...`);
         docUrls[d.id] = await subir(
           file,
           `taxistas/${uid}/documentosVehiculo/${d.id}.jpg`
@@ -597,23 +605,59 @@ export function RegistrarConductorModal({ onClose }) {
                   <UploadImagen label="Foto de perfil" file={fotoPerfil} onChange={setFotoPerfil} />
                 </div>
 
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-400 mb-1">
-                  Documentos obligatorios
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
-                  {DOCS_OBLIGATORIOS.map((d) => (
-                    <UploadImagen key={d.id} label={d.label} required file={docs[d.id] || null} onChange={(f) => setDoc_(d.id, f)} />
-                  ))}
-                </div>
+                {cargandoDocumentos ? (
+                  <div className="flex items-center gap-2 text-sm text-gray-500 py-4">
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    Cargando la lista de documentos...
+                  </div>
+                ) : (
+                  <>
+                    {docsRequeridos.length > 0 && (
+                      <>
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-400 mb-1">
+                          Documentos obligatorios
+                        </h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+                          {docsRequeridos.map((d) => (
+                            <UploadImagen key={d.id} label={d.nombre} required file={docs[d.id] || null} onChange={(f) => setDoc_(d.id, f)} />
+                          ))}
+                        </div>
+                      </>
+                    )}
 
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-400 mb-1">
-                  Documentos opcionales
-                </h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {DOCS_OPCIONALES.map((d) => (
-                    <UploadImagen key={d.id} label={d.label} file={docs[d.id] || null} onChange={(f) => setDoc_(d.id, f)} />
-                  ))}
-                </div>
+                    {docsOpcionales.length > 0 && (
+                      <>
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-gray-400 mb-1">
+                          Documentos opcionales
+                        </h3>
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {docsOpcionales.map((d) => (
+                            <UploadImagen key={d.id} label={d.nombre} file={docs[d.id] || null} onChange={(f) => setDoc_(d.id, f)} />
+                          ))}
+                        </div>
+                      </>
+                    )}
+
+                    {/* Avisa, no bloquea. Dice la consecuencia concreta para
+                        que el admin decida con la informacion delante. */}
+                    {faltanDocumentos.length > 0 && (
+                      <div className="mt-4 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                        <ShieldCheck className="w-4 h-4 mt-0.5 shrink-0 text-amber-500" />
+                        <p className="text-xs text-amber-800">
+                          <span className="font-semibold">
+                            Faltan {faltanDocumentos.length} documento
+                            {faltanDocumentos.length === 1 ? "" : "s"} obligatorio
+                            {faltanDocumentos.length === 1 ? "" : "s"}:
+                          </span>{" "}
+                          {faltanDocumentos.map((d) => d.nombre).join(", ")}. Podés
+                          dar de alta igual, pero la conductora va a ver el
+                          checklist de documentos incompleto en la app hasta que
+                          los suba.
+                        </p>
+                      </div>
+                    )}
+                  </>
+                )}
               </section>
 
               {/* Opciones */}
