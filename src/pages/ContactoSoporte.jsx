@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
 import { db, auth } from "../config/firebase";
 import { doc, onSnapshot, setDoc, serverTimestamp } from "firebase/firestore";
-import { Phone, Save, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
+import {
+  Phone,
+  Mail,
+  Save,
+  AlertCircle,
+  CheckCircle2,
+  Loader2,
+} from "lucide-react";
 
 // Documento único de configuración. Vive en la misma colección que el resto
 // (`config/comisiones`, `config/tarifas`), cuyas reglas ya permiten lectura a
@@ -9,22 +16,41 @@ import { Phone, Save, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 const COL = "config";
 const DOC = "contacto";
 
-// El que estaba escrito a mano en la app antes de la tarjeta 1401. Si nadie
-// guardó nada todavía, la app usa este mismo valor, así que se muestra acá para
-// que se vea qué número está sirviendo en este momento.
+// Los que estaban escritos a mano en la app, antes de las tarjetas 1401 y 1456.
+// Si nadie guardó nada todavía, la app usa estos mismos valores, así que se
+// muestran acá para que se vea qué está sirviendo en este momento.
+//
+// El correo por defecto es un Gmail PERSONAL que quedó publicado como canal
+// oficial de soporte: reemplazarlo es justamente el punto de la tarjeta 1456.
 const TELEFONO_POR_DEFECTO = "77991640";
+const EMAIL_POR_DEFECTO = "rogerponce761@gmail.com";
 
 // Mismo criterio que valida la app: se cuentan los dígitos, no los caracteres,
 // para aceptar "+591 700-00000".
 const MINIMO_DIGITOS = 7;
 
+// Y el mismo criterio laxo para el correo: algo, arroba, algo, punto, algo, sin
+// espacios. No busca cubrir el estándar completo, sólo descartar lo que seguro
+// no funcionaría al abrir el cliente de correo.
+const RE_EMAIL = /^[^@\s]+@[^@\s]+\.[^@\s]+$/;
+
 function contarDigitos(valor) {
   return (valor.match(/\d/g) || []).length;
 }
 
+function telefonoValido(valor) {
+  return contarDigitos(valor) >= MINIMO_DIGITOS;
+}
+
+function emailValido(valor) {
+  return RE_EMAIL.test(valor);
+}
+
 export function ContactoSoporte() {
   const [telefono, setTelefono] = useState("");
-  const [guardado, setGuardado] = useState(null);
+  const [email, setEmail] = useState("");
+  const [guardadoTelefono, setGuardadoTelefono] = useState(null);
+  const [guardadoEmail, setGuardadoEmail] = useState(null);
   const [cargando, setCargando] = useState(true);
   const [guardando, setGuardando] = useState(false);
   const [mensaje, setMensaje] = useState(null);
@@ -33,12 +59,16 @@ export function ContactoSoporte() {
     const unsub = onSnapshot(
       doc(db, COL, DOC),
       (snap) => {
-        const valor = snap.exists() ? snap.data().telefono ?? "" : "";
-        const texto = String(valor);
-        setGuardado(snap.exists() ? texto : null);
-        // Sólo se pisa lo que hay en el input en la primera carga, para no
+        const datos = snap.exists() ? snap.data() : {};
+        const tel = String(datos.telefono ?? "");
+        const mail = String(datos.email ?? "");
+
+        setGuardadoTelefono(snap.exists() ? tel : null);
+        setGuardadoEmail(snap.exists() ? mail : null);
+        // Sólo se pisa lo que hay en los inputs en la primera carga, para no
         // borrar lo que la administradora está escribiendo si llega un cambio.
-        setTelefono((actual) => (actual === "" ? texto : actual));
+        setTelefono((actual) => (actual === "" ? tel : actual));
+        setEmail((actual) => (actual === "" ? mail : actual));
         setCargando(false);
       },
       (error) => {
@@ -52,19 +82,32 @@ export function ContactoSoporte() {
     return unsub;
   }, []);
 
-  const valor = telefono.trim();
-  const digitos = contarDigitos(valor);
-  const esValido = digitos >= MINIMO_DIGITOS;
-  const hayCambios = valor !== (guardado ?? "");
+  const telValor = telefono.trim();
+  const emailValor = email.trim();
 
-  // Lo que realmente está usando la app en este momento.
-  const enUsoPorLaApp =
-    guardado && contarDigitos(guardado) >= MINIMO_DIGITOS
-      ? guardado
+  const telOk = telefonoValido(telValor);
+  const emailOk = emailValido(emailValor);
+  const todoValido = telOk && emailOk;
+
+  const hayCambios =
+    telValor !== (guardadoTelefono ?? "") ||
+    emailValor !== (guardadoEmail ?? "");
+
+  // Lo que realmente está usando la app en este momento. Se evalúa campo por
+  // campo con el mismo criterio que la app: uno mal cargado no arrastra al otro.
+  const telEnUso =
+    guardadoTelefono && telefonoValido(guardadoTelefono)
+      ? guardadoTelefono
       : TELEFONO_POR_DEFECTO;
+  const emailEnUso =
+    guardadoEmail && emailValido(guardadoEmail)
+      ? guardadoEmail
+      : EMAIL_POR_DEFECTO;
+
+  const usandoEmailPersonal = emailEnUso === EMAIL_POR_DEFECTO;
 
   const guardar = async () => {
-    if (!esValido || guardando) return;
+    if (!todoValido || guardando) return;
 
     setGuardando(true);
     setMensaje(null);
@@ -72,7 +115,8 @@ export function ContactoSoporte() {
       await setDoc(
         doc(db, COL, DOC),
         {
-          telefono: valor,
+          telefono: telValor,
+          email: emailValor,
           actualizadoPor: auth.currentUser?.email || "admin",
           actualizadoEn: serverTimestamp(),
         },
@@ -80,7 +124,8 @@ export function ContactoSoporte() {
       );
       setMensaje({
         tipo: "ok",
-        texto: "Número actualizado. La app lo toma la próxima vez que se abre la pantalla de contacto.",
+        texto:
+          "Datos actualizados. La app los toma la próxima vez que se abre la pantalla de contacto.",
       });
     } catch (error) {
       setMensaje({
@@ -106,23 +151,31 @@ export function ContactoSoporte() {
         <div className="flex items-center gap-3 mb-2">
           <Phone className="w-6 h-6 text-green-600" />
           <h2 className="text-2xl font-bold text-gray-800">
-            Número de contacto
+            Contacto de soporte
           </h2>
         </div>
         <p className="text-sm text-gray-500 mb-6">
-          Es el número que ven las usuarias en la pantalla de Información de la
-          app, y al que las lleva el botón de WhatsApp.
+          Son el número y el correo que ven las usuarias en la pantalla de
+          Información de la app, y a los que las llevan los botones de WhatsApp
+          y de escribir.
         </p>
 
         <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
-          <p className="text-xs font-semibold text-gray-500 uppercase mb-1">
+          <p className="text-xs font-semibold text-gray-500 uppercase mb-2">
             En uso ahora
           </p>
-          <p className="text-lg font-semibold text-gray-800">{enUsoPorLaApp}</p>
-          {!guardado && (
-            <p className="text-xs text-gray-500 mt-1">
-              Todavía no se guardó ninguno, así que la app usa el número que
-              venía en el código. Guardá uno acá para reemplazarlo.
+          <p className="flex items-center gap-2 text-base font-semibold text-gray-800">
+            <Phone className="w-4 h-4 text-gray-400 shrink-0" />
+            {telEnUso}
+          </p>
+          <p className="flex items-center gap-2 text-base font-semibold text-gray-800 mt-1 break-all">
+            <Mail className="w-4 h-4 text-gray-400 shrink-0" />
+            {emailEnUso}
+          </p>
+          {usandoEmailPersonal && (
+            <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1.5 mt-3">
+              ⚠️ El correo en uso es una cuenta personal que quedó en el código.
+              Guardá acá el correo oficial de soporte para reemplazarlo.
             </p>
           )}
         </div>
@@ -131,7 +184,7 @@ export function ContactoSoporte() {
           htmlFor="telefono-contacto"
           className="block text-sm font-medium text-gray-700 mb-2"
         >
-          Nuevo número <span className="text-red-500">*</span>
+          Número de contacto <span className="text-red-500">*</span>
         </label>
         <input
           id="telefono-contacto"
@@ -142,7 +195,7 @@ export function ContactoSoporte() {
           disabled={guardando}
           className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
         />
-        {valor !== "" && !esValido && (
+        {telValor !== "" && !telOk && (
           <p className="flex items-center gap-2 text-sm text-red-600 mt-2">
             <AlertCircle className="w-4 h-4 shrink-0" />
             Tiene que tener al menos {MINIMO_DIGITOS} dígitos. La app descarta
@@ -150,10 +203,33 @@ export function ContactoSoporte() {
           </p>
         )}
 
+        <label
+          htmlFor="email-contacto"
+          className="block text-sm font-medium text-gray-700 mb-2 mt-5"
+        >
+          Correo de soporte <span className="text-red-500">*</span>
+        </label>
+        <input
+          id="email-contacto"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Ej: soporte@mujeresalvolante.bo"
+          disabled={guardando}
+          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500 disabled:bg-gray-100"
+        />
+        {emailValor !== "" && !emailOk && (
+          <p className="flex items-center gap-2 text-sm text-red-600 mt-2">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            No parece un correo válido. La app descarta los valores que no lo
+            son y vuelve al correo anterior.
+          </p>
+        )}
+
         <div className="flex items-center gap-3 mt-6">
           <button
             onClick={guardar}
-            disabled={!esValido || !hayCambios || guardando}
+            disabled={!todoValido || !hayCambios || guardando}
             className="bg-green-500 hover:bg-green-600 text-white font-semibold px-6 py-3 rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
           >
             {guardando ? (
@@ -164,11 +240,11 @@ export function ContactoSoporte() {
             ) : (
               <>
                 <Save className="w-5 h-5" />
-                Guardar número
+                Guardar cambios
               </>
             )}
           </button>
-          {!hayCambios && valor !== "" && (
+          {!hayCambios && telValor !== "" && (
             <span className="text-sm text-gray-500">
               No hay cambios para guardar.
             </span>

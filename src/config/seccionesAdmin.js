@@ -16,7 +16,7 @@ export const SECCIONES_ADMIN = [
   { id: "administradores", label: "Administradores" },
   { id: "preguntas-frecuentes", label: "Preguntas Frecuentes" },
   { id: "reglas", label: "Reglas de conductores" },
-  { id: "contacto-soporte", label: "Número de contacto" },
+  { id: "contacto-soporte", label: "Contacto de soporte" },
 ];
 
 export const IDS_SECCIONES = SECCIONES_ADMIN.map((s) => s.id);
