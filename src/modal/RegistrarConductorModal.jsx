@@ -460,7 +460,12 @@ export function RegistrarConductorModal({ onClose }) {
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                   <Field label="Marca"><input className={inputCls} value={marca} onChange={(e) => setMarca(e.target.value)} /></Field>
-                  <Field label="Modelo"><input className={inputCls} value={modelo} onChange={(e) => setModelo(e.target.value)} /></Field>
+                  {/* "Modelo" acá es el AÑO del vehículo, no el nombre del
+                      modelo. Sin la aclaración se llenaba con cualquiera de
+                      los dos (tarjeta 1447). En la app, el asistente de
+                      documentos del vehículo ya lo rotula "Modelo (Año)" y
+                      ofrece una ruleta de años, así que esto los alinea. */}
+                  <Field label="Modelo (año)"><input className={inputCls} value={modelo} onChange={(e) => setModelo(e.target.value)} placeholder="2018" inputMode="numeric" /></Field>
                   <Field label="Color"><input className={inputCls} value={color} onChange={(e) => setColor(e.target.value)} /></Field>
                   <Field label="Placa"><input className={inputCls} value={placa} onChange={(e) => setPlaca(e.target.value)} /></Field>
                   <Field label="Tipo"><input className={inputCls} value={tipoVehiculo} onChange={(e) => setTipoVehiculo(e.target.value)} placeholder="Auto, Vagoneta..." /></Field>
