@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react';
 import { db, storage, auth } from "../config/firebase";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
-import { ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { Upload, Image as ImageIcon, Trash2, CheckCircle } from 'lucide-react';
+import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
+import { Upload, Image as ImageIcon, Trash2, CheckCircle, AlertCircle, RefreshCw } from 'lucide-react';
 
 export function QRManager() {
   const [qrActual, setQrActual] = useState(null);
@@ -12,6 +12,20 @@ export function QRManager() {
   const [preview, setPreview] = useState(null);
   const [descripcion, setDescripcion] = useState('');
 
+  // Estado de carga de la imagen del QR. Se guarda la URL que YA terminó de
+  // cargar (y la que falló) en vez de un booleano suelto: así, cuando la URL
+  // cambia después de actualizar, el recuadro vuelve a "cargando" solo y no
+  // queda un spinner pegado si la imagen ya estaba en caché.
+  const [imgListaUrl, setImgListaUrl] = useState(null);
+  const [imgErrorUrl, setImgErrorUrl] = useState(null);
+  const [intentoImg, setIntentoImg] = useState(0);
+
+  const urlActual = qrActual?.imageUrl || null;
+  // Un documento guardado sin `imageUrl` se trata como imagen fallida: antes
+  // caía en <img src={undefined}> y dejaba el recuadro vacío sin explicar nada.
+  const imgFallo = urlActual === null || imgErrorUrl === urlActual;
+  const imgCargando = !imgFallo && imgListaUrl !== urlActual;
+
   useEffect(() => {
     cargarQRActual();
   }, []);
@@ -20,16 +34,17 @@ export function QRManager() {
     try {
       const qrRef = doc(db, "qr_recarga", "activo");
       const qrDoc = await getDoc(qrRef);
-      
+
       if (qrDoc.exists()) {
-        setQrActual(qrDoc.data());
-        setDescripcion(qrDoc.data().descripcion || '');
-        console.log('✅ QR actual cargado:', qrDoc.data());
+        const data = qrDoc.data();
+        setQrActual(data);
+        setDescripcion(data.descripcion || '');
       } else {
-        console.log('⚠️ No existe QR activo');
+        console.log('No existe QR activo');
       }
     } catch (error) {
       console.error('Error al cargar QR:', error);
+      mostrarNotificacion(`No se pudo cargar el QR actual: ${error.message}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -41,13 +56,13 @@ export function QRManager() {
 
     // Validar que sea una imagen
     if (!file.type.startsWith('image/')) {
-      alert('Por favor selecciona un archivo de imagen');
+      mostrarNotificacion('El archivo elegido no es una imagen', 'error');
       return;
     }
 
     // Validar tamaño (máx 5MB)
     if (file.size > 5 * 1024 * 1024) {
-      alert('La imagen debe ser menor a 5MB');
+      mostrarNotificacion('La imagen debe pesar menos de 5MB', 'error');
       return;
     }
 
@@ -63,39 +78,30 @@ export function QRManager() {
 
   const subirQR = async () => {
     if (!selectedFile) {
-      alert('Por favor selecciona una imagen');
+      mostrarNotificacion('Elegí una imagen antes de actualizar', 'error');
       return;
     }
 
     if (!descripcion.trim()) {
-      alert('Por favor agrega una descripción');
+      mostrarNotificacion('Agregá una descripción antes de actualizar', 'error');
       return;
     }
 
     setUploading(true);
     try {
-      // 1. Eliminar imagen anterior si existe
-      if (qrActual?.imageUrl) {
-        try {
-          const oldImageRef = ref(storage, 'qr_recarga/qr_actual.jpg');
-          await deleteObject(oldImageRef);
-          console.log('✅ Imagen anterior eliminada');
-        } catch (error) {
-          console.log('⚠️ No se pudo eliminar imagen anterior:', error);
-        }
-      }
-
-      // 2. Subir nueva imagen a Storage
+      // Se sube SIEMPRE a la misma ruta y `uploadBytes` la sobrescribe de una.
+      // Antes se borraba el archivo anterior ANTES de subir el nuevo, lo que
+      // dejaba una ventana en la que el QR no existía en Storage: si en ese
+      // momento el navegador volvía a pedir la imagen, el recuadro quedaba en
+      // blanco aunque el cambio se guardara bien. Sobrescribir no deja ese hueco.
       const storageRef = ref(storage, 'qr_recarga/qr_actual.jpg');
       await uploadBytes(storageRef, selectedFile);
       const imageUrl = await getDownloadURL(storageRef);
-      console.log('✅ Imagen subida a Storage:', imageUrl);
 
-      // 3. Actualizar documento en Firestore
       const qrRef = doc(db, "qr_recarga", "activo");
       const version = (qrActual?.version || 0) + 1;
-      
-      const qrData = {
+
+      await setDoc(qrRef, {
         imageUrl: imageUrl,
         descripcion: descripcion.trim(),
         creadoPor: auth.currentUser?.email || 'admin',
@@ -103,43 +109,63 @@ export function QRManager() {
         fechaActualizacion: serverTimestamp(),
         activo: true,
         version: version
-      };
+      });
 
-      await setDoc(qrRef, qrData);
-      console.log('✅ QR actualizado en Firestore');
+      // Se relee lo que quedó guardado en vez de meter en el estado el objeto
+      // que se mandó. `serverTimestamp()` es un centinela, no una fecha: si se
+      // dejaba en el estado, "Última actualización" pasaba a mostrar "N/A"
+      // justo después de haber guardado bien.
+      await cargarQRActual();
 
-      // 4. Actualizar estado
-      setQrActual(qrData);
       setSelectedFile(null);
       setPreview(null);
 
-      // Mostrar notificación de éxito
-      mostrarNotificacion('QR actualizado exitosamente', 'success');
+      mostrarNotificacion(`QR actualizado exitosamente (versión ${version})`, 'success');
     } catch (error) {
-      console.error('❌ Error al subir QR:', error);
-      alert('Error al subir el QR: ' + error.message);
+      console.error('Error al subir QR:', error);
+      mostrarNotificacion(`No se pudo actualizar el QR: ${error.message}`, 'error');
     } finally {
       setUploading(false);
     }
   };
 
+  // Reintentar vuelve a leer el documento (por si la URL guardada cambió) y
+  // fuerza el remontado del <img> con el contador, para que el navegador pida
+  // la imagen de nuevo aunque la URL sea la misma.
+  const reintentarImagen = async () => {
+    setImgErrorUrl(null);
+    setIntentoImg((n) => n + 1);
+    await cargarQRActual();
+  };
+
   const mostrarNotificacion = (mensaje, tipo = 'success') => {
+    const esExito = tipo === 'success';
+
     const notificacion = document.createElement('div');
-    notificacion.className = `fixed top-4 right-4 ${tipo === 'success' ? 'bg-green-500' : 'bg-red-500'} text-white px-6 py-4 rounded-lg shadow-xl z-50 animate-slide-in`;
-    notificacion.innerHTML = `
-      <div class="flex items-center gap-3">
-        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
-        </svg>
-        <p class="font-semibold">${mensaje}</p>
-      </div>
-    `;
+    notificacion.setAttribute('role', 'alert');
+    notificacion.className = `fixed top-4 right-4 max-w-sm ${esExito ? 'bg-green-500' : 'bg-red-500'} text-white px-6 py-4 rounded-lg shadow-xl z-50 animate-slide-in`;
+
+    const fila = document.createElement('div');
+    fila.className = 'flex items-center gap-3';
+    // Solo el ícono va por innerHTML (es HTML fijo nuestro). El mensaje va por
+    // textContent porque puede venir de error.message y no se debe interpretar.
+    fila.innerHTML = esExito
+      ? '<svg class="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>'
+      : '<svg class="w-6 h-6 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>';
+
+    const texto = document.createElement('p');
+    texto.className = 'font-semibold';
+    texto.textContent = mensaje;
+    fila.appendChild(texto);
+
+    notificacion.appendChild(fila);
     document.body.appendChild(notificacion);
-    
+
+    // Los errores se quedan más tiempo para poder leerlos.
     setTimeout(() => {
       notificacion.style.animation = 'slide-out 0.3s ease-in-out';
       setTimeout(() => notificacion.remove(), 300);
-    }, 3000);
+    }, esExito ? 3000 : 6000);
   };
 
   const cancelarSeleccion = () => {
@@ -170,14 +196,49 @@ export function QRManager() {
         {/* Columna Izquierda: QR Actual */}
         <div>
           <h3 className="text-lg font-semibold text-gray-700 mb-4">QR Actual</h3>
-          
+
           {qrActual ? (
             <div className="border-2 border-gray-200 rounded-lg p-4">
-              <img 
-                src={qrActual.imageUrl} 
-                alt="QR de Recarga" 
-                className="w-full max-w-md mx-auto rounded-lg shadow-md mb-4"
-              />
+              {/* El recuadro reserva alto fijo: mientras la imagen nueva se
+                  descarga se ve un spinner y no un hueco vacío, que es lo que
+                  se leía como "la pantalla se queda en blanco". */}
+              <div className="relative min-h-48 flex items-center justify-center mb-4">
+                {imgFallo ? (
+                  <div className="flex flex-col items-center gap-2 text-center py-8">
+                    <AlertCircle className="w-10 h-10 text-red-500" />
+                    <p className="text-sm font-semibold text-gray-700">
+                      No se pudo mostrar la imagen del QR
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      Los datos del QR sí están guardados. Probá cargarla de nuevo.
+                    </p>
+                    <button
+                      onClick={reintentarImagen}
+                      className="mt-2 inline-flex items-center gap-2 px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white text-sm font-semibold rounded-lg transition"
+                    >
+                      <RefreshCw className="w-4 h-4" />
+                      Reintentar
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    {imgCargando && (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-gray-50 rounded-lg">
+                        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500"></div>
+                        <p className="text-sm text-gray-500">Cargando imagen del QR...</p>
+                      </div>
+                    )}
+                    <img
+                      key={`${urlActual}#${intentoImg}`}
+                      src={urlActual}
+                      alt="QR de Recarga"
+                      onLoad={() => setImgListaUrl(urlActual)}
+                      onError={() => setImgErrorUrl(urlActual)}
+                      className={`w-full max-w-md mx-auto rounded-lg shadow-md ${imgCargando ? 'invisible' : ''}`}
+                    />
+                  </>
+                )}
+              </div>
               <div className="space-y-2 text-sm">
                 <p className="text-gray-600">
                   <span className="font-semibold">Descripción:</span> {qrActual.descripcion}
@@ -216,9 +277,9 @@ export function QRManager() {
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
-                <img 
-                  src={preview} 
-                  alt="Preview" 
+                <img
+                  src={preview}
+                  alt="Preview"
                   className="w-full max-w-md mx-auto rounded-lg"
                 />
                 <p className="text-center text-sm text-green-600 font-semibold mt-2">
@@ -260,6 +321,7 @@ export function QRManager() {
                 placeholder="Ej: Escanea este QR para recargar tu billetera con Nequi"
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-green-500"
                 rows="3"
+                disabled={uploading}
               />
             </div>
 
@@ -282,16 +344,27 @@ export function QRManager() {
                   </>
                 )}
               </button>
-              
+
               {preview && (
                 <button
                   onClick={cancelarSeleccion}
-                  className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition"
+                  disabled={uploading}
+                  className="px-6 py-3 bg-gray-500 hover:bg-gray-600 text-white font-semibold rounded-lg transition disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   Cancelar
                 </button>
               )}
             </div>
+
+            {/* Aviso mientras se sube, para que no parezca que no pasa nada */}
+            {uploading && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-4 flex items-center gap-3">
+                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-green-600 shrink-0"></div>
+                <p className="text-sm text-green-800">
+                  Subiendo el QR y guardando los cambios. No cierres esta pantalla.
+                </p>
+              </div>
+            )}
 
             {/* Información */}
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
