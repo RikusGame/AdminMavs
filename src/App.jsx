@@ -25,6 +25,7 @@ import ViajesSection from "./pages/viajes_section";
 import { isCurrentUserAdmin, obtenerAccesoAdmin } from "./utils/adminValidator";
 import { IDS_SECCIONES } from "./config/seccionesAdmin";
 import { UnauthorizedAccess } from "./pages/UnauthorizedAccess";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // Secciones pesadas cargadas on-demand para achicar el bundle inicial:
 // MapaConductores arrastra Google Maps y Dashboard recharts. (Tarjeta [224])
@@ -276,11 +277,28 @@ export default function App() {
         }`}
       />
       <main className="flex-1 overflow-auto min-w-0">
-        <Suspense
-          fallback={<div className="p-8 text-gray-500">Cargando…</div>}
+        {/* El boundary va DENTRO del layout y no envolviendo la app entera, a
+            propósito (tarjeta 1451): si una sección revienta, el menú de la
+            izquierda sigue en pie y se puede navegar a otra. Envolviendo todo,
+            un error de una sola pantalla dejaría el panel inutilizable.
+
+            La `key` lo resetea al cambiar de pantalla: sin eso, una pantalla
+            rota dejaría el mensaje de error pegado al navegar a otra que sí
+            funciona. Incluye los ids seleccionados porque el perfil de una
+            usuaria o de una conductora cambia lo que se dibuja SIN cambiar de
+            sección: si reventara con una conductora, volver y abrir otra tiene
+            que reintentar de verdad. */}
+        <ErrorBoundary
+          key={`${activeSection}|${selectedUsuarioId || ""}|${
+            selectedConductorId || ""
+          }`}
         >
-          {renderContent()}
-        </Suspense>
+          <Suspense
+            fallback={<div className="p-8 text-gray-500">Cargando…</div>}
+          >
+            {renderContent()}
+          </Suspense>
+        </ErrorBoundary>
       </main>
     </div>
   );
