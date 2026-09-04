@@ -188,11 +188,11 @@ export function Sidebar({ activeSection, setActiveSection, isExpanded, setIsExpa
     },
     {
       id: "contacto-soporte",
-      label: "Número de contacto",
+      label: "Contacto de soporte",
       icon: Phone,
       section: "configuración",
       ayuda:
-        "El número que ven las usuarias en la pantalla de Información de la app, y al que las lleva el botón de WhatsApp. Antes estaba fijo en el código.",
+        "El número y el correo que ven las usuarias en la pantalla de Información de la app. Antes estaban fijos en el código.",
     },
   ];
 
