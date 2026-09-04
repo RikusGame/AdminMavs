@@ -161,10 +161,6 @@ export function RegistrarConductorModal({ onClose }) {
     };
   }, []);
 
-  const docsRequeridos = documentos.filter((d) => d.requerido);
-  const docsOpcionales = documentos.filter((d) => !d.requerido);
-  const faltanDocumentos = docsRequeridos.filter((d) => !docs[d.id]);
-
   const [habilitado, setHabilitado] = useState(true);
 
   // Imágenes
@@ -176,6 +172,19 @@ export function RegistrarConductorModal({ onClose }) {
   const [error, setError] = useState("");
   const [resultado, setResultado] = useState(null); // { correo, password, emailSent }
   const [copiado, setCopiado] = useState(false);
+
+  // Van ACÁ, después de `docs`, y no arriba junto al efecto que carga la
+  // lista. `faltanDocumentos` lee `docs` mientras se dibuja, así que si se
+  // calcula antes de que se ejecute su `useState` rompe la pantalla entera con
+  // "Cannot access 'docs' before initialization" (tarjeta 1472).
+  //
+  // No se notaba al abrir el modal: en el primer dibujo `documentos` está
+  // vacío, el `.filter` no llega a llamar a la función y no toca `docs`.
+  // Recién cuando la configuración llega y hay documentos requeridos, el
+  // siguiente dibujo revienta.
+  const docsRequeridos = documentos.filter((d) => d.requerido);
+  const docsOpcionales = documentos.filter((d) => !d.requerido);
+  const faltanDocumentos = docsRequeridos.filter((d) => !docs[d.id]);
 
   const setDoc_ = (id, file) => setDocs((prev) => ({ ...prev, [id]: file }));
 
