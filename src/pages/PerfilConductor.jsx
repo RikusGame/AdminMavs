@@ -7,6 +7,18 @@ import { AgregarMontoModal } from "../modal/AgregarMontoModal";
 import { LogsCliente } from "../components/LogsCliente";
 import { MiniMapaUbicacion } from "../components/MiniMapaUbicacion";
 
+// Radio de despacho de la conductora (tarjeta 1368): hasta qué distancia del
+// punto de recogida le llegan solicitudes. El valor va en km y `0` significa
+// TODA LA CIUDAD, sin límite. Tiene que coincidir con lo que lee el despacho en
+// `functions/index.js` (`radioDespachoDe`), que ante un valor ausente o
+// inválido cae a 2 km, que es lo que estaba fijo en el código antes.
+const RADIO_DESPACHO_POR_DEFECTO = 2;
+const OPCIONES_RADIO_DESPACHO = [
+  { valor: 1, etiqueta: "1 km a la redonda" },
+  { valor: 2, etiqueta: "2 km a la redonda" },
+  { valor: 0, etiqueta: "Toda la ciudad (sin límite)" },
+];
+
 // Extrae la ubicación del domicilio de documentosVehiculo. El app la guarda
 // como string "Dirección @ lat,lng" (campo del mapa) o como objeto
 // {direccion, lat, lng}. Devuelve {direccion, lat, lng} o null.
@@ -56,6 +68,10 @@ export function PerfilConductor({ conductorId, onBack }) {
   const [serviciosApp, setServiciosApp] = useState([]);
   const [servicioConductor, setServicioConductor] = useState("");
   const [guardandoServicio, setGuardandoServicio] = useState(false);
+  // Radio de despacho: hasta qué distancia del punto de recogida le llegan
+  // solicitudes. En km; 0 significa toda la ciudad, sin límite. (Tarjeta 1368)
+  const [radioDespacho, setRadioDespacho] = useState(RADIO_DESPACHO_POR_DEFECTO);
+  const [guardandoRadio, setGuardandoRadio] = useState(false);
   // Departamento de la conductora: el catálogo de servicios depende de él.
   const [departamentoConductor, setDepartamentoConductor] = useState("");
   const [cargandoServicios, setCargandoServicios] = useState(false);
@@ -141,6 +157,24 @@ export function PerfilConductor({ conductorId, onBack }) {
       alert("No se pudo guardar el servicio: " + (e.message || e));
     } finally {
       setGuardandoServicio(false);
+    }
+  };
+
+  const cambiarRadioDespacho = async (km) => {
+    if (!conductorId) return;
+    const anterior = radioDespacho;
+    setRadioDespacho(km);
+    setGuardandoRadio(true);
+    try {
+      await updateDoc(doc(db, "taxistas", conductorId), {
+        "documentosVehiculo.radioDespachoKm": km,
+      });
+    } catch (e) {
+      console.error("Error guardando radio de despacho:", e);
+      setRadioDespacho(anterior);
+      alert("No se pudo guardar el radio de despacho: " + (e.message || e));
+    } finally {
+      setGuardandoRadio(false);
     }
   };
 
@@ -232,6 +266,14 @@ export function PerfilConductor({ conductorId, onBack }) {
   },
 });
           setServicioConductor(vehiculo.servicioSeleccionado || "");
+          // Mismo criterio que el despacho: si no hay valor válido guardado,
+          // rige el por defecto. (Tarjeta 1368)
+          setRadioDespacho(
+            typeof vehiculo.radioDespachoKm === "number" &&
+              vehiculo.radioDespachoKm >= 0
+              ? vehiculo.radioDespachoKm
+              : RADIO_DESPACHO_POR_DEFECTO
+          );
           // El catálogo de servicios depende del departamento. (Tarjeta [1122])
           setDepartamentoConductor(vehiculo.departamentoServicio || "");
         } else {
@@ -532,6 +574,46 @@ export function PerfilConductor({ conductorId, onBack }) {
                       )}
                   </select>
                   {guardandoServicio && (
+                    <span className="text-xs text-gray-400 shrink-0">
+                      Guardando...
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Radio de despacho: hasta qué distancia le llegan solicitudes.
+                  Antes era un 2 km fijo en el código. (Tarjeta 1368) */}
+              <div className="border-t mt-4 pt-4">
+                <h3 className="font-bold text-gray-800 mb-2">
+                  Radio de despacho
+                </h3>
+                <p className="text-xs text-gray-500 mb-2">
+                  Hasta qué distancia del punto de recogida le llegan
+                  solicitudes. Un radio chico puede dejarla sin carreras.
+                </p>
+                <div className="flex items-center gap-2">
+                  <select
+                    value={radioDespacho}
+                    onChange={(e) =>
+                      cambiarRadioDespacho(Number(e.target.value))
+                    }
+                    disabled={guardandoRadio}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:border-green-500 focus:ring-1 focus:ring-green-500 outline-none transition text-sm disabled:opacity-60"
+                  >
+                    {OPCIONES_RADIO_DESPACHO.map((o) => (
+                      <option key={o.valor} value={o.valor}>
+                        {o.etiqueta}
+                      </option>
+                    ))}
+                    {!OPCIONES_RADIO_DESPACHO.some(
+                      (o) => o.valor === radioDespacho
+                    ) && (
+                      <option value={radioDespacho}>
+                        {radioDespacho} km (valor personalizado)
+                      </option>
+                    )}
+                  </select>
+                  {guardandoRadio && (
                     <span className="text-xs text-gray-400 shrink-0">
                       Guardando...
                     </span>
