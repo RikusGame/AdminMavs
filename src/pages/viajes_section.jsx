@@ -4,6 +4,7 @@ import {
   query,
   orderBy,
   limit,
+  where,
   onSnapshot,
   doc,
   getDoc,
@@ -15,6 +16,53 @@ import { MapPin, User, CreditCard, Mail, FileSpreadsheet, Ban } from "lucide-rea
 import { getAuth } from "firebase/auth";
 // exportarViajesAExcel se importa on-demand (arrastra xlsx) para que no viaje
 // en la carga inicial del panel. (Tarjeta [224])
+
+// Rangos del selector de arriba. El orden es el del desplegable.
+// (Tarjeta [1742])
+const RANGOS = [
+  { id: "hoy", label: "Hoy" },
+  { id: "ayer", label: "Ayer" },
+  { id: "7dias", label: "Últimos 7 días" },
+  { id: "historico", label: "Histórico completo" },
+];
+
+const MS_POR_DIA = 86400000;
+// Bolivia es UTC-4 todo el año: no tiene horario de verano, así que alcanza
+// con una constante. Si se corrigiera "hoy" con la hora del navegador, una
+// operadora en otro huso vería otro día. (Tarjeta [1742])
+const DESFASE_BOLIVIA_MS = 4 * 60 * 60 * 1000;
+
+/**
+ * Medianoche EN BOLIVIA de hace `diasAtras` días, como instante real.
+ * @param {number} diasAtras 0 = hoy, 1 = ayer
+ * @return {Date} el instante en que empezó ese día en Bolivia
+ */
+function inicioDelDiaEnBolivia(diasAtras) {
+  const enBolivia = Date.now() - DESFASE_BOLIVIA_MS;
+  const medianoche = Math.floor(enBolivia / MS_POR_DIA) * MS_POR_DIA;
+  return new Date(medianoche - diasAtras * MS_POR_DIA + DESFASE_BOLIVIA_MS);
+}
+
+/**
+ * Los bordes de fecha de un rango. `null` significa "sin tope de ese lado".
+ * @param {string} rango uno de los ids de RANGOS
+ * @return {{desde: Date|null, hasta: Date|null}} bordes para la consulta
+ */
+function limitesDelRango(rango) {
+  if (rango === "hoy") {
+    return { desde: inicioDelDiaEnBolivia(0), hasta: null };
+  }
+  if (rango === "ayer") {
+    // Ayer es un rango CERRADO: sin el tope de arriba entrarían los de hoy.
+    return { desde: inicioDelDiaEnBolivia(1), hasta: inicioDelDiaEnBolivia(0) };
+  }
+  if (rango === "7dias") {
+    // Siete días contando hoy, así que se retrocede seis.
+    return { desde: inicioDelDiaEnBolivia(6), hasta: null };
+  }
+  // "historico": sin bordes, la consulta de siempre.
+  return { desde: null, hasta: null };
+}
 
 export default function ViajesSection({ filtroEstadoInicial }) {
   const [viajes, setViajes] = useState([]);
@@ -28,12 +76,40 @@ export default function ViajesSection({ filtroEstadoInicial }) {
   const [filtroTipoViaje, setFiltroTipoViaje] = useState("todos");
   const [filtroCategoria, setFiltroCategoria] = useState("todos");
   const [busquedaConductor, setBusquedaConductor] = useState("");
+  // Desde cuándo traer viajes. Arranca en "hoy" a propósito: es lo que se
+  // pidió y evita bajarse el historial entero cada vez que se entra.
+  // (Tarjeta [1742])
+  //
+  // EXCEPCIÓN: si se llegó tocando una tarjeta del dashboard —eso es lo que
+  // significa que venga `filtroEstadoInicial`— se abre en histórico. Esas
+  // tarjetas cuentan TODAS las órdenes, sin filtro de fecha, así que abrir en
+  // "hoy" mostraría un puñado de viajes debajo de un número que cuenta
+  // cientos. El número que se tocó y la lista que aparece tienen que ser lo
+  // mismo. (Aparece al juntar la [1741] con la [1742]: por separado ninguna
+  // de las dos lo tenía.)
+  const [filtroRango, setFiltroRango] = useState(
+    filtroEstadoInicial ? "historico" : "hoy"
+  );
+  // Por qué la lista está vacía cuando no es porque no haya viajes. Antes el
+  // error sólo iba a la consola del navegador y la pantalla decía "No hay
+  // viajes para mostrar", que es otra cosa.
+  const [errorCarga, setErrorCarga] = useState(null);
 
   useEffect(() => {
     setLoadingViajes(true);
+    setErrorCarga(null);
+
+    // El recorte por fecha lo hace FIRESTORE, no el navegador: si filtrara acá
+    // se bajaría igual todo el historial y no se ahorraría nada, que es
+    // justamente lo que se pidió evitar. (Tarjeta [1742])
+    const { desde, hasta } = limitesDelRango(filtroRango);
+    const condiciones = [];
+    if (desde) condiciones.push(where("createdAt", ">=", desde));
+    if (hasta) condiciones.push(where("createdAt", "<", hasta));
 
     const ordenesQuery = query(
       collectionGroup(db, "ordenes"),
+      ...condiciones,
       orderBy("createdAt", "desc"),
       limit(300)
     );
@@ -214,11 +290,21 @@ export default function ViajesSection({ filtroEstadoInicial }) {
       (error) => {
         console.error("Error al cargar viajes:", error);
         setLoadingViajes(false);
+        // Un indice que falta cae acá. Antes quedaba sólo en la consola y
+        // la pantalla decía "No hay viajes", que es otra cosa muy
+        // distinta. (Tarjeta [1742])
+        setErrorCarga(
+          String(error?.code || "").includes("failed-precondition")
+            ? "Falta desplegar un índice de Firestore para poder ordenar " +
+              "los viajes por fecha. El listado no puede cargarse hasta " +
+              "que se publique."
+            : `No se pudieron cargar los viajes: ${error?.message || error}`
+        );
       }
     );
 
     return () => unsubscribe();
-  }, []);
+  }, [filtroRango]);
 
   const viajesFiltrados = useMemo(() => {
     return viajes.filter((v) => {
@@ -398,6 +484,25 @@ export default function ViajesSection({ filtroEstadoInicial }) {
 
           <div className="flex flex-col xl:flex-row xl:items-end xl:justify-between gap-4 mb-6">
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
+              {/* Va primero porque es el único que cambia lo que se BAJA de
+                  Firestore; los otros filtran lo ya traído. (Tarjeta [1742]) */}
+              <div>
+                <label className="text-sm font-medium text-gray-700 block mb-1">
+                  Período
+                </label>
+                <select
+                  value={filtroRango}
+                  onChange={(e) => setFiltroRango(e.target.value)}
+                  className="px-3 py-2 border rounded-lg text-sm bg-white min-w-[180px]"
+                  title="Cuántos viajes se traen de la base"
+                >
+                  {RANGOS.map((r) => (
+                    <option key={r.id} value={r.id}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="text-sm font-medium text-gray-700 block mb-1">
                   Filtrar por estado
@@ -469,6 +574,14 @@ export default function ViajesSection({ filtroEstadoInicial }) {
               )}
             </div>
           </div>
+
+          {/* "No se pudo consultar" y "no hay viajes" son cosas distintas y
+              hasta la [1742] se veían igual: la de abajo. */}
+          {errorCarga && (
+            <div className="mb-4 px-4 py-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+              {errorCarga}
+            </div>
+          )}
 
           {loadingViajes ? (
             <div className="text-center py-16">
