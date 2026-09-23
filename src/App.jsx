@@ -49,6 +49,9 @@ export default function App() {
   const [menuExpanded, setMenuExpanded] = useState(false);
   const [acceso, setAcceso] = useState(null); // {permisos:'all'|[ids], esSuper, error?}
   const [accesoReload, setAccesoReload] = useState(0); // trigger de reintento
+  // Filtro con el que abrir la sección de viajes cuando se llega desde una
+  // tarjeta del dashboard. Null = entrar sin filtro. (Tarjeta [1741])
+  const [filtroViajesInicial, setFiltroViajesInicial] = useState(null);
 
   // ¿El admin actual puede ver esta sección?
   // FAIL-CLOSED: mientras `acceso` no cargó, NO conceder (antes devolvía true
@@ -59,6 +62,23 @@ export default function App() {
     if (acceso.permisos === "all") return true;
     return Array.isArray(acceso.permisos) && acceso.permisos.includes(id);
   };
+
+  // Ir a una sección desde adentro del contenido (hoy, las tarjetas del
+  // dashboard). Respeta los permisos: si no puede, no se mueve. (Tarjeta [1741])
+  const navegarA = (seccion, opciones) => {
+    if (!puede(seccion)) return;
+    if (seccion === "viajes") {
+      setFiltroViajesInicial(opciones?.filtroEstado ?? null);
+    }
+    setActiveSection(seccion);
+  };
+
+  // Al salir de viajes se olvida el filtro con el que se entró, para que la
+  // próxima vez que se entre por el menú se vea la lista completa. ViajesSection
+  // solo lo lee al montarse, así que limpiarlo acá no toca la vista actual.
+  useEffect(() => {
+    if (activeSection !== "viajes") setFiltroViajesInicial(null);
+  }, [activeSection]);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -199,7 +219,7 @@ export default function App() {
 
     switch (activeSection) {
       case "dashboard":
-        return <Dashboard />;
+        return <Dashboard onNavegar={navegarA} puedeVer={puede} />;
 
       case "usuarios":
         return <Usuarios onSelectUsuario={setSelectedUsuarioId} />;
@@ -211,7 +231,7 @@ export default function App() {
         return <Documentos />;
 
       case "viajes":
-        return <ViajesSection />;
+        return <ViajesSection filtroEstadoInicial={filtroViajesInicial} />;
 
       case "gestion-documentos":
         return <GestionDocumentos />;
@@ -258,7 +278,7 @@ export default function App() {
         return <EnConstruccion />;
 
       default:
-        return <Dashboard />;
+        return <Dashboard onNavegar={navegarA} puedeVer={puede} />;
     }
   };
 

@@ -64,17 +64,32 @@ function limitesDelRango(rango) {
   return { desde: null, hasta: null };
 }
 
-export default function ViajesSection() {
+export default function ViajesSection({ filtroEstadoInicial }) {
   const [viajes, setViajes] = useState([]);
   const [loadingViajes, setLoadingViajes] = useState(true);
-  const [filtroEstado, setFiltroEstado] = useState("todos");
+  // Arranca con el filtro que pida quien lo abre: el dashboard entra aca
+  // con "completado" o "cancelado" segun la tarjeta que se toco. Sin eso,
+  // "todos". (Tarjeta [1741])
+  const [filtroEstado, setFiltroEstado] = useState(
+    filtroEstadoInicial || "todos"
+  );
   const [filtroTipoViaje, setFiltroTipoViaje] = useState("todos");
   const [filtroCategoria, setFiltroCategoria] = useState("todos");
   const [busquedaConductor, setBusquedaConductor] = useState("");
   // Desde cuándo traer viajes. Arranca en "hoy" a propósito: es lo que se
   // pidió y evita bajarse el historial entero cada vez que se entra.
   // (Tarjeta [1742])
-  const [filtroRango, setFiltroRango] = useState("hoy");
+  //
+  // EXCEPCIÓN: si se llegó tocando una tarjeta del dashboard —eso es lo que
+  // significa que venga `filtroEstadoInicial`— se abre en histórico. Esas
+  // tarjetas cuentan TODAS las órdenes, sin filtro de fecha, así que abrir en
+  // "hoy" mostraría un puñado de viajes debajo de un número que cuenta
+  // cientos. El número que se tocó y la lista que aparece tienen que ser lo
+  // mismo. (Aparece al juntar la [1741] con la [1742]: por separado ninguna
+  // de las dos lo tenía.)
+  const [filtroRango, setFiltroRango] = useState(
+    filtroEstadoInicial ? "historico" : "hoy"
+  );
   // Por qué la lista está vacía cuando no es porque no haya viajes. Antes el
   // error sólo iba a la consola del navegador y la pantalla decía "No hay
   // viajes para mostrar", que es otra cosa.

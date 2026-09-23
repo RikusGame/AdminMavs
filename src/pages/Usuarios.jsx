@@ -21,6 +21,14 @@ export function Usuarios({ onSelectUsuario }) {
   const [usuarioToDelete, setUsuarioToDelete] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [imageErrors, setImageErrors] = useState({});
+  // Filtro que aplican las tarjetas de arriba: 'todos' | 'activos' |
+  // 'pasajeros' | 'taxistas'. (Tarjeta [1741])
+  const [filtroTarjeta, setFiltroTarjeta] = useState('todos');
+  // Cuántos registros muestra el listado. El selector "Mostrar" existía en la
+  // pantalla pero no estaba enganchado a nada: no tenía `value`, ni
+  // `onChange`, ni estado detrás, así que elegir otra cantidad no hacía nada.
+  // (Tarjeta [1741])
+  const [porPagina, setPorPagina] = useState(10);
 
   useEffect(() => {
     setLoading(true);
@@ -58,6 +66,13 @@ export function Usuarios({ onSelectUsuario }) {
               fecha: perfil.ultimologin ? new Date(perfil.ultimologin).toLocaleString() : "N/A",
               fechaRegistro: perfil.createdAt ?? data.createdAt ?? data.fechaRegistro ?? perfil.fechaRegistro ?? null,
               activo: estadoActivo,
+              // Si la CUENTA está activa, con la misma regla para todos:
+              // activa mientras nadie la haya desactivado. Es lo que escribe
+              // `toggleActivo` desde el interruptor de cada fila. Va aparte de
+              // `activo` a propósito: ese sigue siendo el que mira el
+              // interruptor, y para un taxista significa otra cosa (si tiene
+              // los documentos del vehículo habilitados). (Tarjeta [1741])
+              activoCuenta: data.activo !== false,
               photoUrl: perfil.photoUrl || (perfil.name ? perfil.name.charAt(0).toUpperCase() : '👤'),
               color: data.color || '#4caf50',
             };
@@ -111,7 +126,29 @@ export function Usuarios({ onSelectUsuario }) {
     );
   };
 
+  // Los cuatro números de las tarjetas. (Tarjeta [1741])
+  //
+  // "Activos" contaba `u.activo`, que para un taxista NO es si la cuenta está
+  // activa sino si tiene los documentos del vehículo habilitados. Como el
+  // campo `activo` no está escrito en NINGUNO de los documentos, todas las
+  // pasajeras caían en el valor por defecto (activa) y ningún taxista lo
+  // alcanzaba: el número terminaba siendo, exactamente, la cantidad de
+  // pasajeras. Por eso se veía repetido con la tarjeta "Pasajeros".
+  //
+  // Ahora la regla es la misma para todos y es la que escribe el interruptor
+  // de cada fila: activa mientras nadie la haya desactivado.
+  const totalUsuarios = usuarios.length;
+  const usuariosActivos = usuarios.filter((u) => u.activoCuenta).length;
+  const usuariosPasajeros = usuarios.filter((u) => u.modo === 'pasajero').length;
+  const usuariosTaxistas = usuarios.filter((u) => u.modo === 'taxista').length;
+
   const filteredUsuarios = usuarios
+    .filter((usuario) => {
+      if (filtroTarjeta === 'activos') return usuario.activoCuenta;
+      if (filtroTarjeta === 'pasajeros') return usuario.modo === 'pasajero';
+      if (filtroTarjeta === 'taxistas') return usuario.modo === 'taxista';
+      return true;
+    })
     .filter((usuario) => {
       const t = searchTerm.toLowerCase();
       return (
@@ -138,11 +175,18 @@ export function Usuarios({ onSelectUsuario }) {
       return sortDir === 'asc' ? cmp : -cmp;
     });
 
+  // Lo que realmente se dibuja en la tabla, ya recortado a la cantidad que
+  // pide el selector "Mostrar". (Tarjeta [1741])
+  const usuariosVisibles = filteredUsuarios.slice(0, porPagina);
+
+  // "Seleccionar todos" marca las filas QUE SE VEN, no las que quedaron
+  // fuera del recorte: si no, un clic acá seleccionaría gente que no está en
+  // pantalla y el botón de borrar se la llevaría puesta.
   const toggleSelectAll = () => {
-    if (selectedUsers.length === filteredUsuarios.length && filteredUsuarios.length > 0) {
+    if (selectedUsers.length === usuariosVisibles.length && usuariosVisibles.length > 0) {
       setSelectedUsers([]);
     } else {
-      setSelectedUsers(filteredUsuarios.map((u) => u.id));
+      setSelectedUsers(usuariosVisibles.map((u) => u.id));
     }
   };
   
@@ -213,23 +257,27 @@ export function Usuarios({ onSelectUsuario }) {
         </div>
       </div>
 
+      {/* Al tocar una tarjeta se filtra el listado de abajo. (Tarjeta [1741]) */}
       <div className="grid grid-cols-4 gap-4 mb-6">
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <div className="text-2xl mb-1">{usuarios.length}</div>
-          <div className="text-sm text-gray-500">Total Usuarios</div>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <div className="text-2xl text-green-600 mb-1">{usuarios.filter(u => u.activo).length}</div>
-          <div className="text-sm text-gray-500">Activos</div>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <div className="text-2xl text-blue-600 mb-1">{usuarios.filter(u => u.modo === 'pasajero').length}</div>
-          <div className="text-sm text-gray-500">Pasajeros</div>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <div className="text-2xl text-orange-600 mb-1">{usuarios.filter(u => u.modo === 'taxista').length}</div>
-          <div className="text-sm text-gray-500">Taxistas</div>
-        </div>
+        {[
+          {id: 'todos', n: totalUsuarios, etiqueta: 'Total Usuarios', color: '', anillo: 'ring-gray-400'},
+          {id: 'activos', n: usuariosActivos, etiqueta: 'Activos', color: 'text-green-600', anillo: 'ring-green-500'},
+          {id: 'pasajeros', n: usuariosPasajeros, etiqueta: 'Pasajeros', color: 'text-blue-600', anillo: 'ring-blue-500'},
+          {id: 'taxistas', n: usuariosTaxistas, etiqueta: 'Taxistas', color: 'text-orange-600', anillo: 'ring-orange-500'},
+        ].map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            onClick={() => setFiltroTarjeta(t.id)}
+            aria-pressed={filtroTarjeta === t.id}
+            className={`bg-white rounded-lg p-4 shadow-sm text-left transition hover:shadow-md ${
+              filtroTarjeta === t.id ? `ring-2 ${t.anillo}` : ''
+            }`}
+          >
+            <div className={`text-2xl mb-1 ${t.color}`}>{t.n}</div>
+            <div className="text-sm text-gray-500">{t.etiqueta}</div>
+          </button>
+        ))}
       </div>
 
       <div className="bg-white rounded-lg p-4 shadow-sm mb-4">
@@ -261,7 +309,17 @@ export function Usuarios({ onSelectUsuario }) {
         </div>
 
         <div className="text-sm text-gray-600 mb-4">
-          Mostrar <select className="px-2 py-1 border rounded"><option>10</option><option>25</option><option>50</option></select> registros
+          Mostrar{' '}
+          <select
+            className="px-2 py-1 border rounded"
+            value={porPagina}
+            onChange={(e) => setPorPagina(Number(e.target.value))}
+          >
+            <option value={10}>10</option>
+            <option value={25}>25</option>
+            <option value={50}>50</option>
+          </select>{' '}
+          registros
         </div>
 
         <div className="overflow-x-auto">
@@ -271,7 +329,7 @@ export function Usuarios({ onSelectUsuario }) {
                 <th className="text-left py-3 px-4">
                   <input
                     type="checkbox"
-                    checked={selectedUsers.length > 0 && selectedUsers.length === filteredUsuarios.length}
+                    checked={selectedUsers.length > 0 && selectedUsers.length === usuariosVisibles.length}
                     onChange={toggleSelectAll}
                     className="rounded"
                   />
@@ -303,7 +361,7 @@ export function Usuarios({ onSelectUsuario }) {
               </tr>
             </thead>
             <tbody>
-              {filteredUsuarios.map((usuario) => (
+              {usuariosVisibles.map((usuario) => (
                 <tr key={usuario.id} className="border-b hover:bg-gray-50">
                   <td className="py-3 px-4">
                     <input
