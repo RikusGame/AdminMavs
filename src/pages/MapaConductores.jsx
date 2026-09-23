@@ -58,6 +58,12 @@ export function MapaConductores() {
 
   const [conductores, setConductores] = useState([]); // [{uid, lat, lng, activa}]
   const [mapReady, setMapReady] = useState(false);
+  // Por qué la lista está vacía, cuando no está vacía porque sí. (Tarjeta [1737])
+  //
+  // Sin esto, que las reglas de RTDB nieguen la lectura se ve EXACTAMENTE
+  // igual que que no haya ninguna conductora conectada: mismo cero, mismo
+  // cartel. Fue lo que pasó — el dato estaba y la pantalla decía que no.
+  const [errorLectura, setErrorLectura] = useState(null);
   const [nombres, setNombres] = useState({}); // uid -> {nombre, telefono}
 
   // Inicializar mapa una sola vez.
@@ -130,14 +136,27 @@ export function MapaConductores() {
       });
       infoRef.current = info;
       setNombres(info);
+    },
+    // Si esto falla, los marcadores igual se dibujan pero todas quedan como
+    // "Conductora" sin nombre ni teléfono. No vacía el mapa, así que no se
+    // muestra en pantalla, pero tampoco tiene que morir callado. (Tarjeta [1737])
+    (error) => {
+      console.error("Mapa de conductoras: no se pudieron leer los nombres", error);
     });
     return () => unsub();
   }, []);
 
   // Posiciones en vivo desde RTDB (pasajeros con modo taxista).
+  //
+  // OJO CON EL NODO QUE SE PIDE: se lee `pasajeros` ENTERO, o sea el padre.
+  // En RTDB los permisos de lectura bajan pero no suben, así que un `.read`
+  // puesto en `pasajeros/$uid` NO alcanza: hace falta que esté en `pasajeros`.
+  // Es la diferencia que tenía la regla desplegada y por la que el mapa salía
+  // vacío teniendo 31 conductoras con ubicación. (Tarjeta [1737])
   useEffect(() => {
     const rtdb = getDatabase();
     const unsub = onValue(ref(rtdb, "pasajeros"), (snap) => {
+      setErrorLectura(null);
       const val = snap.val() || {};
       const list = [];
       for (const uid of Object.keys(val)) {
@@ -153,6 +172,19 @@ export function MapaConductores() {
         list.push({ uid, lat, lng, activa: t.activo === true && fresca });
       }
       setConductores(list);
+    },
+    // TERCER ARGUMENTO: el callback de error. Antes no estaba, y sin él
+    // `onValue` se come la denegación en silencio — el callback de datos
+    // simplemente no se dispara nunca. (Tarjeta [1737])
+    (error) => {
+      console.error("Mapa de conductoras: no se pudo leer RTDB", error);
+      setConductores([]);
+      setErrorLectura(
+        error?.code === "PERMISSION_DENIED" || error?.message?.includes("permission")
+          ? "El panel no tiene permiso para leer las ubicaciones. Hay que " +
+            "desplegar las reglas de la base en tiempo real (database.rules.json)."
+          : `No se pudieron leer las ubicaciones: ${error?.message || error}`
+      );
     });
     return () => unsub();
   }, []);
@@ -287,10 +319,19 @@ export function MapaConductores() {
         <span className="inline-flex items-center gap-1.5">
           <span className="w-3 h-3 rounded-full bg-gray-400 inline-block" /> Inactiva
         </span>
-        {conductores.length === 0 && (
-          <span className="ml-2 text-amber-600 inline-flex items-center gap-1.5">
-            <Car className="w-4 h-4" /> Sin conductoras con ubicación activa ahora
+        {/* "No hay ninguna" y "no pude preguntar" son cosas distintas y hasta
+            la [1737] se veían igual. Ahora se distinguen. */}
+        {errorLectura ? (
+          <span className="ml-2 text-red-600 inline-flex items-start gap-1.5 font-medium">
+            <Car className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <span>{errorLectura}</span>
           </span>
+        ) : (
+          conductores.length === 0 && (
+            <span className="ml-2 text-amber-600 inline-flex items-center gap-1.5">
+              <Car className="w-4 h-4" /> Sin conductoras con ubicación activa ahora
+            </span>
+          )
         )}
       </div>
 
@@ -305,7 +346,11 @@ export function MapaConductores() {
           <div className="px-3 py-2 text-xs font-semibold text-gray-500 uppercase border-b border-gray-100 sticky top-0 bg-white/95">
             Conductoras ({conductores.length})
           </div>
-          {conductores.length === 0 ? (
+          {errorLectura ? (
+            <div className="px-3 py-3 text-sm text-red-600">
+              No se pudo leer la lista.
+            </div>
+          ) : conductores.length === 0 ? (
             <div className="px-3 py-3 text-sm text-gray-400">
               Ninguna con ubicación ahora.
             </div>
