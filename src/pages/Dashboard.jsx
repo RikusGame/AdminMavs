@@ -57,7 +57,43 @@ const mejoresConductores = [
   },
 ];
 
-export function Dashboard() {
+/**
+ * Una tarjeta de métrica del panel. (Tarjeta [1741])
+ *
+ * Si `onClick` viene, se dibuja como botón y lleva al módulo correspondiente;
+ * si no viene —porque esa admin no tiene permiso para esa sección— se dibuja
+ * exactamente igual pero sin click, en vez de ofrecer algo que va a rebotar.
+ */
+function TarjetaMetrica({ gradiente, etiquetaColor, etiqueta, valor, Icono, onClick }) {
+  const contenido = (
+    <div className="flex items-center justify-between">
+      <div>
+        <p className={`${etiquetaColor} text-xs md:text-sm font-medium`}>{etiqueta}</p>
+        <h3 className="text-xl md:text-3xl font-bold mt-2">{valor}</h3>
+      </div>
+      <div className="bg-white/20 p-3 rounded-full">
+        <Icono className="w-8 h-8" />
+      </div>
+    </div>
+  );
+
+  const clases = `bg-gradient-to-br ${gradiente} rounded-lg p-4 md:p-6 shadow-lg text-white`;
+
+  if (!onClick) return <div className={clases}>{contenido}</div>;
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={`Ver ${etiqueta.toLowerCase()}`}
+      className={`${clases} w-full text-left transition hover:shadow-xl hover:brightness-110 focus:outline-none focus:ring-2 focus:ring-white/70`}
+    >
+      {contenido}
+    </button>
+  );
+}
+
+export function Dashboard({ onNavegar, puedeVer }) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const menuRef = useRef(null);
   
@@ -292,6 +328,22 @@ export function Dashboard() {
 
   }, [todosLosViajes, todasLasComisiones, todasLasRecargas]);
 
+  // A dónde lleva cada tarjeta. (Tarjeta [1741])
+  //
+  // Devuelven null cuando esa admin no tiene permiso para la sección: la
+  // tarjeta se dibuja igual pero sin click, en vez de ofrecer un camino que
+  // termina rebotando contra el chequeo de permisos de App.jsx.
+  const puedeIr = (seccion) =>
+    typeof onNavegar === 'function' &&
+    (typeof puedeVer !== 'function' || puedeVer(seccion));
+
+  const irAViajes = (filtroEstado) =>
+    puedeIr('viajes') ? () => onNavegar('viajes', { filtroEstado }) : null;
+
+  const irARecargas = puedeIr('qr-recarga')
+    ? () => onNavegar('qr-recarga')
+    : null;
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
@@ -326,59 +378,46 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Tarjetas de Estadísticas Principales */}
+      {/* Tarjetas de Estadísticas Principales.
+          Cada una lleva al listado que le corresponde. (Tarjeta [1741])
+          Las dos de plata van a viajes completados porque es de ahí que sale
+          la comisión; las recargas viven en la bandeja de comprobantes. */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-6">
-        <div className="bg-gradient-to-br from-green-500 to-green-600 rounded-lg p-4 md:p-6 shadow-lg text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-green-100 text-xs md:text-sm font-medium">Completados</p>
-              <h3 className="text-2xl md:text-3xl font-bold mt-2">{cargando ? '...' : estadisticasViajes.completados}</h3>
-            </div>
-            <div className="bg-white/20 p-3 rounded-full">
-              <TrendingUp className="w-8 h-8" />
-            </div>
-          </div>
-        </div>
+        <TarjetaMetrica
+          gradiente="from-green-500 to-green-600"
+          etiquetaColor="text-green-100"
+          etiqueta="Completados"
+          valor={cargando ? '...' : estadisticasViajes.completados}
+          Icono={TrendingUp}
+          onClick={irAViajes('completado')}
+        />
 
-        <div className="bg-gradient-to-br from-red-500 to-red-600 rounded-lg p-4 md:p-6 shadow-lg text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-red-100 text-xs md:text-sm font-medium">Cancelados</p>
-              <h3 className="text-2xl md:text-3xl font-bold mt-2">{cargando ? '...' : estadisticasViajes.cancelados}</h3>
-            </div>
-            <div className="bg-white/20 p-3 rounded-full">
-              <MapPin className="w-8 h-8" />
-            </div>
-          </div>
-        </div>
+        <TarjetaMetrica
+          gradiente="from-red-500 to-red-600"
+          etiquetaColor="text-red-100"
+          etiqueta="Cancelados"
+          valor={cargando ? '...' : estadisticasViajes.cancelados}
+          Icono={MapPin}
+          onClick={irAViajes('cancelado')}
+        />
 
-        <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg p-4 md:p-6 shadow-lg text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-purple-100 text-xs md:text-sm font-medium">Comisiones Total</p>
-              <h3 className="text-xl md:text-3xl font-bold mt-2">
-                {cargando ? '...' : `Bs. ${comisionesTotal.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              </h3>
-            </div>
-            <div className="bg-white/20 p-3 rounded-full">
-              <DollarSign className="w-8 h-8" />
-            </div>
-          </div>
-        </div>
+        <TarjetaMetrica
+          gradiente="from-purple-500 to-purple-600"
+          etiquetaColor="text-purple-100"
+          etiqueta="Comisiones Total"
+          valor={cargando ? '...' : `Bs. ${comisionesTotal.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          Icono={DollarSign}
+          onClick={irAViajes('completado')}
+        />
 
-        <div className="bg-gradient-to-br from-cyan-500 to-cyan-600 rounded-lg p-4 md:p-6 shadow-lg text-white">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-cyan-100 text-xs md:text-sm font-medium">Recargas Total</p>
-              <h3 className="text-xl md:text-3xl font-bold mt-2">
-                {cargando ? '...' : `Bs. ${recargasTotal.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
-              </h3>
-            </div>
-            <div className="bg-white/20 p-3 rounded-full">
-              <Wallet className="w-8 h-8" />
-            </div>
-          </div>
-        </div>
+        <TarjetaMetrica
+          gradiente="from-cyan-500 to-cyan-600"
+          etiquetaColor="text-cyan-100"
+          etiqueta="Recargas Total"
+          valor={cargando ? '...' : `Bs. ${recargasTotal.toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+          Icono={Wallet}
+          onClick={irARecargas}
+        />
       </div>
 
       {/* Gráficos Comparativos Mejorados */}
