@@ -15,6 +15,10 @@ export function Conductores({ onSelectConductor }) {
   const [conductores, setConductores] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  // Filtro que aplican las tarjetas de arriba: 'todos' | 'activos'. (Tarjeta
+  // [1741]) Vive aparte del buscador para que se puedan combinar: buscar un
+  // nombre DENTRO de las activas.
+  const [filtroTarjeta, setFiltroTarjeta] = useState("todos");
   const [sortBy, setSortBy] = useState("fecha"); // 'fecha' | 'nombre'
   const [sortDir, setSortDir] = useState("desc"); // 'asc' | 'desc'
   const [showRegistrar, setShowRegistrar] = useState(false);
@@ -306,7 +310,14 @@ export function Conductores({ onSelectConductor }) {
     );
   };
 
+  // Cuántas están realmente habilitadas. Es el número de la tarjeta "Activos"
+  // y NO puede salir de `filteredConductores`: eso fue el bug de la [1741],
+  // que mostraba el largo de la lista filtrada y por eso daba siempre igual
+  // que el total mientras no hubiera búsqueda.
+  const conductorasActivas = conductores.filter((c) => c.habilitado).length;
+
   const filteredConductores = conductores
+    .filter((conductor) => filtroTarjeta !== "activos" || conductor.habilitado)
     .filter((conductor) => {
       const t = searchTerm.toLowerCase();
       return (
@@ -360,16 +371,33 @@ export function Conductores({ onSelectConductor }) {
         </div>
       </div>
 
-      {/* Stats Cards */}
+      {/* Stats Cards. Al tocarlas filtran la lista de abajo. (Tarjeta [1741])
+          Antes la segunda decía "Resultados" y mostraba el largo de la lista
+          filtrada: sin búsqueda activa era el mismo número que el total, que
+          es lo que se reportó (las dos en 84). */}
       <div className="grid grid-cols-2 gap-4 mb-6">
-        <div className="bg-white rounded-lg p-4 shadow-sm">
+        <button
+          type="button"
+          onClick={() => setFiltroTarjeta("todos")}
+          aria-pressed={filtroTarjeta === "todos"}
+          className={`bg-white rounded-lg p-4 shadow-sm text-left transition hover:shadow-md ${
+            filtroTarjeta === "todos" ? "ring-2 ring-green-500" : ""
+          }`}
+        >
           <div className="text-2xl mb-1">{conductores.length}</div>
           <div className="text-sm text-gray-500">Total Conductores</div>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <div className="text-2xl text-blue-600 mb-1">{filteredConductores.length}</div>
-          <div className="text-sm text-gray-500">Resultados</div>
-        </div>
+        </button>
+        <button
+          type="button"
+          onClick={() => setFiltroTarjeta("activos")}
+          aria-pressed={filtroTarjeta === "activos"}
+          className={`bg-white rounded-lg p-4 shadow-sm text-left transition hover:shadow-md ${
+            filtroTarjeta === "activos" ? "ring-2 ring-blue-500" : ""
+          }`}
+        >
+          <div className="text-2xl text-blue-600 mb-1">{conductorasActivas}</div>
+          <div className="text-sm text-gray-500">Activos</div>
+        </button>
       </div>
       <div className="bg-white rounded-lg p-4 shadow-sm mb-4">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 mb-4">

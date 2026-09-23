@@ -16,10 +16,15 @@ import { getAuth } from "firebase/auth";
 // exportarViajesAExcel se importa on-demand (arrastra xlsx) para que no viaje
 // en la carga inicial del panel. (Tarjeta [224])
 
-export default function ViajesSection() {
+export default function ViajesSection({ filtroEstadoInicial }) {
   const [viajes, setViajes] = useState([]);
   const [loadingViajes, setLoadingViajes] = useState(true);
-  const [filtroEstado, setFiltroEstado] = useState("todos");
+  // Arranca con el filtro que pida quien lo abre: el dashboard entra aca
+  // con "completado" o "cancelado" segun la tarjeta que se toco. Sin eso,
+  // "todos". (Tarjeta [1741])
+  const [filtroEstado, setFiltroEstado] = useState(
+    filtroEstadoInicial || "todos"
+  );
   const [filtroTipoViaje, setFiltroTipoViaje] = useState("todos");
   const [filtroCategoria, setFiltroCategoria] = useState("todos");
   const [busquedaConductor, setBusquedaConductor] = useState("");
