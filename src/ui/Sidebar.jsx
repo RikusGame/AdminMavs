@@ -24,7 +24,8 @@ import {
 } from "lucide-react";
 import { useEffect, useState, useMemo, useRef } from "react";
 import { signOut } from "firebase/auth";
-import { auth } from "../config/firebase";
+import { collection, onSnapshot, query, where } from "firebase/firestore";
+import { auth, db } from "../config/firebase";
 import { PerfilAdminModal } from "../components/PerfilAdminModal";
 
 // Base de la documentación publicada en el mismo hosting (mav-tic.com/ayuda).
@@ -40,6 +41,91 @@ export function Sidebar({ activeSection, setActiveSection, isExpanded, setIsExpa
   // del ícono "?" para no quedar recortado por el scroll del menú.
   const [hint, setHint] = useState(null); // { text, href, top, left }
   const hintTimer = useRef(null);
+
+  // Solicitudes de recarga por QR esperando respuesta. (Tarjeta [1739])
+  //
+  // Vive acá y no en App.jsx porque el menú está siempre montado: así el
+  // contador se mantiene al día esté donde esté la operadora, que es
+  // justamente lo que se pidió — enterarse sin tener que entrar a la sección.
+  const [pendientesRecarga, setPendientesRecarga] = useState(0);
+  // `default` = todavía no decidió, `granted` = avisos permitidos,
+  // `denied` = los bloqueó. `null` = el navegador no soporta avisos.
+  const [permisoAvisos, setPermisoAvisos] = useState(
+    typeof Notification === "undefined" ? null : Notification.permission
+  );
+  // Cuántas había en la lectura anterior, para avisar SOLO cuando entra una
+  // nueva. Arranca en null para no disparar un aviso por las que ya estaban
+  // esperando cuando se abrió el panel.
+  const pendientesPrevias = useRef(null);
+
+  // Escucha en vivo las solicitudes de recarga pendientes. (Tarjeta [1739])
+  const puedeVerRecargas = typeof puede !== "function" || puede("qr-recarga");
+  useEffect(() => {
+    // Si esta admin no tiene la sección, no se suscribe: no tiene dónde ver el
+    // contador y la lectura le daría permiso denegado.
+    if (!puedeVerRecargas) {
+      setPendientesRecarga(0);
+      return;
+    }
+    const q = query(
+      collection(db, "solicitudesRecarga"),
+      where("estado", "==", "pendiente")
+    );
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const cuantas = snap.size;
+        const antes = pendientesPrevias.current;
+        pendientesPrevias.current = cuantas;
+        setPendientesRecarga(cuantas);
+
+        // Aviso SOLO si entró alguna nueva. En la primera lectura `antes` es
+        // null: ahí no se avisa, porque esas ya estaban esperando y abrir el
+        // panel no es una novedad.
+        if (antes === null || cuantas <= antes) return;
+        if (typeof Notification === "undefined") return;
+        if (Notification.permission !== "granted") return;
+        const nuevas = cuantas - antes;
+        try {
+          new Notification(
+            nuevas === 1 ?
+              "Nueva solicitud de recarga" :
+              `${nuevas} nuevas solicitudes de recarga`,
+            {
+              body:
+                cuantas === 1 ?
+                  "Hay 1 comprobante esperando aprobación." :
+                  `Hay ${cuantas} comprobantes esperando aprobación.`,
+              // La etiqueta hace que un aviso reemplace al anterior en vez de
+              // apilar uno por cada solicitud.
+              tag: "mav-recargas-pendientes",
+            }
+          );
+        } catch (e) {
+          console.error("No se pudo mostrar el aviso de recarga", e);
+        }
+      },
+      (error) => {
+        // Sin esto una lectura denegada dejaría el contador en cero para
+        // siempre, sin decir por qué. (Misma clase de fallo mudo que la [1737].)
+        console.error("No se pudieron leer las solicitudes de recarga", error);
+        setPendientesRecarga(0);
+      }
+    );
+    return () => unsub();
+  }, [puedeVerRecargas]);
+
+  // Pide permiso para los avisos del navegador. Va detrás de un clic a
+  // propósito: los navegadores exigen un gesto y, sin él, Safari lo rechaza.
+  const pedirPermisoAvisos = async (e) => {
+    e.stopPropagation();
+    if (typeof Notification === "undefined") return;
+    try {
+      setPermisoAvisos(await Notification.requestPermission());
+    } catch (err) {
+      console.error("No se pudo pedir permiso de avisos", err);
+    }
+  };
 
   const mostrarHint = (e, item) => {
     clearTimeout(hintTimer.current);
@@ -268,14 +354,27 @@ export function Sidebar({ activeSection, setActiveSection, isExpanded, setIsExpa
             <button
               key={item.id}
               onClick={() => setActiveSection(item.id)}
-              className={`w-12 h-12 flex items-center justify-center rounded-lg transition-colors ${
+              className={`relative w-12 h-12 flex items-center justify-center rounded-lg transition-colors ${
                 activeSection === item.id
                   ? "bg-[#a8d96f] text-[#1a1d29]"
                   : "text-gray-300 hover:bg-[#252836]"
               }`}
-              title={item.ayuda ? `${item.label} — ${item.ayuda}` : item.label}
+              title={
+                item.id === "qr-recarga" && pendientesRecarga > 0
+                  ? `${item.label} — ${pendientesRecarga} esperando aprobación`
+                  : item.ayuda
+                  ? `${item.label} — ${item.ayuda}`
+                  : item.label
+              }
             >
               <item.icon className="w-5 h-5" />
+              {/* Con el menú plegado no entra la etiqueta, pero el número sí
+                  tiene que verse igual. (Tarjeta [1739]) */}
+              {item.id === "qr-recarga" && pendientesRecarga > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 min-w-[18px] px-1 py-0.5 rounded-full bg-red-500 text-white text-[10px] font-bold leading-none text-center">
+                  {pendientesRecarga > 99 ? "99+" : pendientesRecarga}
+                </span>
+              )}
             </button>
           ))}
         </nav>
@@ -380,6 +479,36 @@ export function Sidebar({ activeSection, setActiveSection, isExpanded, setIsExpa
                     >
                       <item.icon className="w-4 h-4" />
                       <span className="flex-1 text-left">{item.label}</span>
+
+                      {/* Cuántas recargas esperan respuesta. (Tarjeta [1739]) */}
+                      {item.id === "qr-recarga" && pendientesRecarga > 0 && (
+                        <span
+                          className="shrink-0 min-w-[20px] px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[11px] font-bold text-center"
+                          title={`${pendientesRecarga} ${
+                            pendientesRecarga === 1 ?
+                              "solicitud de recarga espera aprobación" :
+                              "solicitudes de recarga esperan aprobación"
+                          }`}
+                        >
+                          {pendientesRecarga}
+                        </span>
+                      )}
+
+                      {/* Sólo mientras no haya decidido: una vez que acepta o
+                          bloquea, el botón desaparece. */}
+                      {item.id === "qr-recarga" && permisoAvisos === "default" && (
+                        <span
+                          onClick={pedirPermisoAvisos}
+                          title="Activar avisos del navegador cuando entre una recarga"
+                          className={`shrink-0 cursor-pointer transition-opacity ${
+                            activeSection === item.id
+                              ? "text-[#1a1d29]/70 hover:text-[#1a1d29]"
+                              : "text-gray-500 hover:text-[#a8d96f]"
+                          }`}
+                        >
+                          <Bell className="w-3.5 h-3.5" />
+                        </span>
+                      )}
 
                       {/* Ícono de ayuda: al pasar el mouse muestra un tooltip
                           con la explicación + enlace "Ver más" a la guía. Al
