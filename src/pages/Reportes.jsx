@@ -1,5 +1,6 @@
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Users, Car, MapPin } from 'lucide-react';
+import { CLASES_TITULO_SECCION } from "../ui/EncabezadoSeccion";
 
 const ingresosData = [
   { mes: 'Ene', ingresos: 12500 },
@@ -37,7 +38,7 @@ export function Reportes() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1>Reportes</h1>
+            <h1 className={CLASES_TITULO_SECCION}>Reportes</h1>
             <p className="text-sm text-gray-500">Análisis y estadísticas del sistema</p>
           </div>
           <div className="text-sm text-gray-500">

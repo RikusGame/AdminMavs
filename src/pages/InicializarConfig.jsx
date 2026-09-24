@@ -6,6 +6,7 @@
 import React, { useState } from 'react';
 import { FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { initDocumentosConfig, verificarConfig } from '../scripts/initDocumentosConfig';
+import { CLASES_TITULO_SECCION } from "../ui/EncabezadoSeccion";
 
 export default function InicializarConfig() {
   const [loading, setLoading] = useState(false);
@@ -44,7 +45,7 @@ export default function InicializarConfig() {
       <div className="max-w-2xl w-full bg-white rounded-lg shadow-lg p-8">
         <div className="flex items-center gap-3 mb-6">
           <FileText className="w-8 h-8 text-blue-600" />
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className={`${CLASES_TITULO_SECCION}`}>
             Inicializar Configuración de Documentos
           </h1>
         </div>

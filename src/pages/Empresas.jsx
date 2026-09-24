@@ -26,6 +26,7 @@ import { formatFecha } from "../utils/fechas";
 import { AgregarEmpresaModal } from "../modal/AgregarEmpresaModal";
 import { FacturacionEmpresaModal } from "../modal/FacturacionEmpresaModal";
 import { AsignarContactoEmpresaModal } from "../modal/AsignarContactoEmpresaModal";
+import { CLASES_TITULO_SECCION } from "../ui/EncabezadoSeccion";
 
 const CICLO_LABEL = {
   semanal: "Semanal",
@@ -124,7 +125,7 @@ export function Empresas() {
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1>Empresas</h1>
+          <h1 className={CLASES_TITULO_SECCION}>Empresas</h1>
           <p className="text-sm text-gray-500">
             Cuentas corporativas con facturación a fin de periodo
           </p>

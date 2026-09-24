@@ -14,10 +14,11 @@ import {
   Line,
   Legend,
 } from "recharts";
-import { Users, UserCircle, Star, Edit, MapPin, Settings, LogOut, User, TrendingUp, DollarSign, Wallet } from "lucide-react";
+import { UserCircle, Star, Edit, MapPin, Settings, LogOut, User, TrendingUp, DollarSign, Wallet } from "lucide-react";
 import { signOut } from "firebase/auth";
 import { auth, db } from "../config/firebase";
 import { collectionGroup, query, where, orderBy, limit, onSnapshot, getDocs } from "firebase/firestore";
+import { CLASES_TITULO_SECCION } from "../ui/EncabezadoSeccion";
 
 const mejoresConductores = [
   {
@@ -348,12 +349,11 @@ export function Dashboard({ onNavegar, puedeVer }) {
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1>Panel de Control</h1>
+          <h1 className={CLASES_TITULO_SECCION}>Panel de Control</h1>
         </div>
+        {/* Se sacó el botón gris de personas que iba acá: no tenía `onClick`,
+            no hacía nada y ocupaba lugar al lado del de sesión. (Tarjeta [1743]) */}
         <div className="flex items-center gap-3">
-          <button className="w-10 h-10 bg-gray-200 rounded-full flex items-center justify-center">
-            <Users className="w-5 h-5 text-gray-600" />
-          </button>
           <div className="relative" ref={menuRef}>
             <button 
               onClick={() => setShowUserMenu(!showUserMenu)}

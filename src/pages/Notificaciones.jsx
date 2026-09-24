@@ -20,6 +20,7 @@ import {
 import { db, auth } from "../config/firebase";
 import { formatFecha } from "../utils/fechas";
 import { BuscadorUsuario } from "../components/BuscadorUsuario";
+import { CLASES_TITULO_SECCION } from "../ui/EncabezadoSeccion";
 
 const AUDIENCIAS = [
   { value: "todos", label: "Todos", icon: Users },
@@ -108,7 +109,7 @@ export function Notificaciones() {
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1>Notificaciones</h1>
+          <h1 className={CLASES_TITULO_SECCION}>Notificaciones</h1>
           <p className="text-sm text-gray-500">
             Envía avisos a los usuarios de la app
           </p>

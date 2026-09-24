@@ -4,6 +4,7 @@ import { collection, query, onSnapshot, doc, updateDoc, getDoc, serverTimestamp 
 import { FileText, Search, Eye, Loader2, Users, Truck, ChevronDown, XCircle } from 'lucide-react';
 import { cargarConfiguracion } from '../components/DocumentConfigManager';
 import EnableAlert from '../components/EnableAlert';
+import { CLASES_TITULO_SECCION } from "../ui/EncabezadoSeccion";
 
 // NOTA: Este mapa estático se mantiene como fallback si falla la carga de configuración
 const DOCUMENT_MAP_FALLBACK = {
@@ -946,7 +947,7 @@ const Documentos = () => {
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-2xl font-bold text-gray-900">Documentos de Conductores</h1>
+        <h1 className={`${CLASES_TITULO_SECCION}`}>Documentos de Conductores</h1>
       </div>
 
       <div className="bg-white rounded-lg p-6 shadow-sm">

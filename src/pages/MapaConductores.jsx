@@ -4,6 +4,7 @@ import { collection, onSnapshot } from "firebase/firestore";
 import { setOptions, importLibrary } from "@googlemaps/js-api-loader";
 import { Car, CircleDot, RefreshCw, Users } from "lucide-react";
 import { db } from "../config/firebase";
+import { CLASES_TITULO_SECCION } from "../ui/EncabezadoSeccion";
 
 // API key de Google Maps. Va por env: este repo es PUBLICO y GitHub bloquea
 // el push si la credencial queda en el codigo. Definir
@@ -285,7 +286,7 @@ export function MapaConductores() {
     <div className="h-full flex flex-col p-4 gap-3">
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
-          <h1>Mapa de conductoras</h1>
+          <h1 className={CLASES_TITULO_SECCION}>Mapa de conductoras</h1>
           <p className="text-sm text-gray-500">
             Vista en tiempo real de la flota
           </p>

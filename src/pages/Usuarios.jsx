@@ -7,6 +7,7 @@ import { collection, onSnapshot, query, doc, updateDoc, deleteDoc } from "fireba
 import EditUsuarioModal from "../modal/EditUsuarioModal";
 import DeleteAlert from "../components/DeleteAlert";
 import { formatFecha } from "../utils/fechas";
+import { CLASES_TITULO_SECCION } from "../ui/EncabezadoSeccion";
 // exportarUsuariosAExcel se importa on-demand (arrastra xlsx, ~95kB gzip) para
 // que no viaje en la carga inicial del panel. (Tarjeta [224])
 
@@ -248,7 +249,7 @@ export function Usuarios({ onSelectUsuario }) {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1>Usuarios</h1>
+            <h1 className={CLASES_TITULO_SECCION}>Usuarios</h1>
             <p className="text-sm text-gray-500">Gestión y administración de usuarios</p>
           </div>
           <div className="text-sm text-gray-500">
