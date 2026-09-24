@@ -19,6 +19,7 @@ import { formatFecha } from "../utils/fechas";
 import DeleteAlert from "../components/DeleteAlert";
 import { SECCIONES_ADMIN } from "../config/seccionesAdmin";
 import { ADMIN_EMAILS } from "../utils/adminValidator";
+import { CLASES_TITULO_SECCION } from "../ui/EncabezadoSeccion";
 
 export function Administradores() {
   const [admins, setAdmins] = useState([]);
@@ -145,7 +146,7 @@ export function Administradores() {
     <div className="p-6">
       <div className="mb-6 flex items-center justify-between">
         <div>
-          <h1>Administradores</h1>
+          <h1 className={CLASES_TITULO_SECCION}>Administradores</h1>
           <p className="text-sm text-gray-500">
             Gestiona quién tiene acceso al panel administrativo
           </p>

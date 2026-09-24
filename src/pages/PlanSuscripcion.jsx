@@ -1,4 +1,5 @@
 import { Check, Crown, Users, UserCircle, Badge } from 'lucide-react';
+import { CLASES_TITULO_SECCION } from "../ui/EncabezadoSeccion";
 
 const planes = [
   {
@@ -103,7 +104,7 @@ export function PlanSuscripcion() {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1>Planes de Suscripción</h1>
+            <h1 className={CLASES_TITULO_SECCION}>Planes de Suscripción</h1>
             <p className="text-sm text-gray-500">Gestiona los planes y suscripciones de los conductores</p>
           </div>
           <div className="text-sm text-gray-500">

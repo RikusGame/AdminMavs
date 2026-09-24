@@ -9,6 +9,7 @@ import EditConductorModal from "../modal/EditConductorModal";
 import DeleteAlert from "../components/DeleteAlert";
 import { formatFecha } from "../utils/fechas";
 import { RegistrarConductorModal } from "../modal/RegistrarConductorModal";
+import { CLASES_TITULO_SECCION } from "../ui/EncabezadoSeccion";
 
 
 export function Conductores({ onSelectConductor }) {
@@ -354,7 +355,7 @@ export function Conductores({ onSelectConductor }) {
       <div className="mb-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h1>Conductores</h1>
+            <h1 className={CLASES_TITULO_SECCION}>Conductores</h1>
             <p className="text-sm text-gray-500">Gestión y administración de conductores</p>
           </div>
           <div className="flex flex-col items-end gap-2">

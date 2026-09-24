@@ -37,6 +37,7 @@ import {
   exportConfig,
   importConfig
 } from '../components/DocumentConfigManager';
+import { CLASES_TITULO_SECCION } from "../ui/EncabezadoSeccion";
 
 const CATEGORIAS = [
   { id: 1, nombre: 'Documentos Personales', paso: 1, color: 'emerald', icon: '👤' },
@@ -695,7 +696,7 @@ export default function GestionDocumentos() {
       <div className="mb-6 md:mb-8">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-2xl md:text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-2">
+            <h1 className={`${CLASES_TITULO_SECCION} mb-2`}>
               Gestión de Documentos
             </h1>
             <p className="text-gray-600 text-sm md:text-lg">Configure los documentos requeridos para el registro de conductores</p>

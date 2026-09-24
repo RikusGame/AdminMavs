@@ -5,6 +5,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import CreateBannerModal from '../modal/CreateBannerModal';
 import EditBannerModal from '../modal/EditBannerModal';
 import BannerCard from '../components/BannerCard';
+import { CLASES_TITULO_SECCION } from "../ui/EncabezadoSeccion";
 
 const Banners = () => {
     const [banners, setBanners] = useState([]);
@@ -98,7 +99,7 @@ const Banners = () => {
     return (
         <div className="p-6 space-y-6">
             <div className="flex justify-between items-center">
-                <h1 className="text-2xl font-bold text-gray-900">Administración de Banners</h1>
+                <h1 className={`${CLASES_TITULO_SECCION}`}>Administración de Banners</h1>
                 <button
                     onClick={() => setIsCreateModalOpen(true)}
                     className="bg-[#a8d96f] hover:bg-[#96c55f] text-white font-medium py-2 px-4 rounded-lg shadow-sm transition duration-150"

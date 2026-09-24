@@ -12,7 +12,14 @@ import {
   EmailAuthProvider,
   reauthenticateWithCredential,
 } from "firebase/auth";
-import { X, Camera, Loader2, User as UserIcon } from "lucide-react";
+import {
+  X,
+  Camera,
+  Loader2,
+  Mail,
+  Phone,
+  User as UserIcon,
+} from "lucide-react";
 
 export function PerfilAdminModal({ onClose }) {
   const user = auth.currentUser;
@@ -20,6 +27,9 @@ export function PerfilAdminModal({ onClose }) {
   const [fotoUrl, setFotoUrl] = useState("");
   const [fotoFile, setFotoFile] = useState(null);
   const [fotoPreview, setFotoPreview] = useState("");
+  // El telefono NO existia en `administradores`: lo pidio la [1743] y se
+  // guarda en el mismo documento, junto al nombre y la foto.
+  const [telefono, setTelefono] = useState("");
   const [passActual, setPassActual] = useState("");
   const [passNueva, setPassNueva] = useState("");
   const [guardando, setGuardando] = useState(false);
@@ -33,6 +43,7 @@ export function PerfilAdminModal({ onClose }) {
         const data = snap.exists() ? snap.data() : {};
         setNombre(data.nombre || user.displayName || "");
         setFotoUrl(data.fotoUrl || user.photoURL || "");
+        setTelefono(data.telefono || "");
       } catch (e) {
         console.error("Perfil admin:", e);
       }
@@ -69,6 +80,7 @@ export function PerfilAdminModal({ onClose }) {
         doc(db, "administradores", user.uid),
         {
           nombre: nombre.trim(),
+          telefono: telefono.trim(),
           fotoUrl: nuevaFoto || "",
           updatedAt: serverTimestamp(),
         },
@@ -142,11 +154,15 @@ export function PerfilAdminModal({ onClose }) {
           </button>
         </div>
 
-        <div className="p-5 space-y-5">
-          {/* Foto */}
-          <div className="flex flex-col items-center gap-2">
-            <div className="relative">
-              <div className="w-24 h-24 rounded-full overflow-hidden bg-green-50 border-2 border-green-200 flex items-center justify-center">
+        {/* Portada verde + avatar montado encima: el mismo lenguaje visual
+            que la ficha de PerfilUsuario, para que se lean como parte del
+            mismo sistema. (Tarjeta [1743]) */}
+        <div className="h-24 bg-gradient-to-r from-green-400 to-green-500" />
+
+        <div className="px-5 pb-5 space-y-5">
+          <div className="flex items-end gap-4 -mt-12 mb-2">
+            <div className="relative shrink-0">
+              <div className="w-24 h-24 rounded-full overflow-hidden bg-green-50 border-4 border-white shadow-lg flex items-center justify-center">
                 {avatar ? (
                   <img
                     src={avatar}
@@ -167,7 +183,12 @@ export function PerfilAdminModal({ onClose }) {
                 />
               </label>
             </div>
-            <span className="text-sm text-gray-500">{user?.email}</span>
+            <div className="min-w-0 pb-1">
+              <p className="text-xl font-bold text-gray-800 truncate">
+                {nombre || "Sin nombre"}
+              </p>
+              <p className="text-sm text-gray-500">Administradora</p>
+            </div>
           </div>
 
           {/* Nombre */}
@@ -182,6 +203,39 @@ export function PerfilAdminModal({ onClose }) {
               placeholder="Tu nombre"
               className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none"
             />
+          </div>
+
+          {/* Contacto: mismas tarjetas grises con ícono verde que la ficha de
+              Usuarios. El correo va de sólo lectura porque cambiarlo es una
+              operación de la cuenta, no de este formulario. La ubicación que
+              sí muestra aquella ficha queda afuera a propósito: la tarjeta
+              pide expresamente no incorporarla. */}
+          <div className="grid grid-cols-1 gap-3">
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-3 mb-2">
+                <Mail className="w-5 h-5 text-green-500" />
+                <span className="text-gray-600 text-sm">
+                  Correo Electrónico
+                </span>
+              </div>
+              <p className="text-gray-800 font-medium break-all">
+                {user?.email || "No disponible"}
+              </p>
+            </div>
+
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <div className="flex items-center gap-3 mb-2">
+                <Phone className="w-5 h-5 text-green-500" />
+                <span className="text-gray-600 text-sm">Teléfono</span>
+              </div>
+              <input
+                type="tel"
+                value={telefono}
+                onChange={(e) => setTelefono(e.target.value)}
+                placeholder="Tu número de teléfono"
+                className="w-full px-4 py-2 bg-white border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-400 focus:border-green-400 outline-none"
+              />
+            </div>
           </div>
 
           {/* Contraseña */}
