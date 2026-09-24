@@ -42,6 +42,10 @@ export function Notificaciones() {
   const [audiencia, setAudiencia] = useState("todos");
   const [uidObjetivo, setUidObjetivo] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  // El enlace del anuncio. No existia: la admin lo escribia dentro del
+  // mensaje y en la app quedaba como texto que no se podia tocar.
+  // (Tarjeta [1740])
+  const [enlace, setEnlace] = useState("");
 
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState("");
@@ -87,6 +91,7 @@ export function Notificaciones() {
         audiencia,
         uidObjetivo: audiencia === "uidEspecifico" ? uidObjetivo.trim() : "",
         imageUrl: imageUrl.trim(),
+        enlace: enlace.trim(),
         sentBy: auth.currentUser?.email || "admin",
         sentAt: serverTimestamp(),
         sentCount: 0,
@@ -97,6 +102,7 @@ export function Notificaciones() {
       setCuerpo("");
       setUidObjetivo("");
       setImageUrl("");
+      setEnlace("");
       setTimeout(() => setOk(false), 3000);
     } catch (err) {
       setError(err?.message || "No se pudo enviar.");
@@ -196,6 +202,21 @@ export function Notificaciones() {
                 onSelect={(uid) => setUidObjetivo(uid)}
               />
             )}
+            <div>
+              <label className="text-xs font-medium text-gray-600">
+                Enlace (opcional)
+              </label>
+              <input
+                className={inputCls}
+                value={enlace}
+                onChange={(e) => setEnlace(e.target.value)}
+                placeholder="https://..."
+              />
+              <p className="text-xs text-gray-400 mt-1">
+                Aparece como un botón para abrir, debajo del mensaje.
+              </p>
+            </div>
+
             <div>
               <label className="text-xs font-medium text-gray-600">
                 Imagen (URL, opcional)
